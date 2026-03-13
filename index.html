@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Belly Bears - Telegram Game</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background-color: #1a1a1a;
+            color: white; font-family: 'Arial', sans-serif;
+            overflow: hidden; text-align: center;
+        }
+        canvas { background-color: #2c3e50; display: block; margin: 0 auto; }
+        #ui-layer {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            background: rgba(0, 0, 0, 0.7); z-index: 10;
+        }
+        .btn {
+            background-color: #f39c12; color: #fff; border: none;
+            padding: 15px 30px; font-size: 18px; font-weight: bold;
+            border-radius: 10px; margin: 10px; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .btn:active { transform: scale(0.95); }
+        .hidden { display: none !important; }
+        #ton-connect-button { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <h1 id="title" style="color:#f39c12;">BELLY BEARS</h1>
+        <p id="desc">Tangkap koin, jangan sampai lolos!</p>
+        <h2 id="finalScore" class="hidden">Skor Akhir: 0</h2>
+        
+        <div id="ton-connect-button"></div>
+        
+        <button id="startBtn" class="btn">🎮 Mulai Makan</button>
+    </div>
+
+    <script>
+        // Gunakan Try-Catch agar kalau TON error, game tetap bisa jalan
+        try {
+            const tonConnectUI = new TONConnectUI.TonConnectUI({
+                // PENTING: Kita pakai manifest public sementara agar tombol muncul
+                manifestUrl: 'https://ton-connect.github.io/demo-dapp-with-react-ui/tonconnect-manifest.json',
+                buttonRootId: 'ton-connect-button'
+            });
+        } catch (error) {
+            console.error("TON Connect gagal dimuat:", error);
+        }
+
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const uiLayer = document.getElementById("ui-layer");
+        const startBtn = document.getElementById("startBtn");
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let isPlaying = false;
+        let score = 0;
+        let items = [];
+        let speed = 3;
+        let spawnTimer;
+        const bear = { x: canvas.width / 2 - 30, y: canvas.height - 120, width: 60, height: 60 };
+
+        // KLIK TOMBOL MULAI (Sudah tidak diwajibkan konek wallet untuk testing)
+        startBtn.addEventListener("click", () => {
+            startGame();
+        });
+
+        function startGame() {
+            isPlaying = true;
+            score = 0;
+            speed = 3;
+            items = [];
+            uiLayer.classList.add("hidden");
+            if (spawnTimer) clearInterval(spawnTimer);
+            spawnTimer = setInterval(spawnItem, 1000);
+            update();
+        }
+
+        function spawnItem() {
+            if (!isPlaying) return;
+            items.push({ x: Math.random() * (canvas.width - 40), y: -40, size: 40 });
+        }
+
+        function update() {
+            if (!isPlaying) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Gambar Karakter Beruang (Nanti bisa kamu ganti pakai aset gambarmu)
+            ctx.font = "50px Arial";
+            ctx.fillText("🐻", bear.x, bear.y + 45);
+
+            for (let i = 0; i < items.length; i++) {
+                let item = items[i];
+                item.y += speed;
+                ctx.fillText("💰", item.x, item.y + 30);
+
+                // Logika Tabrakan (Makan Koin)
+                if (item.y + 20 > bear.y && item.x + 30 > bear.x && item.x < bear.x + bear.width) {
+                    score += 10;
+                    items.splice(i, 1);
+                    i--;
+                    // Kecepatan nambah tiap skor kelipatan 50
+                    if (score % 50 === 0) speed += 0.5;
+                    continue;
+                }
+                
+                // Game Over kalau koin jatuh
+                if (item.y > canvas.height) { 
+                    gameOver(); 
+                    return; 
+                }
+            }
+
+            // Teks Skor
+            ctx.fillStyle = "white";
+            ctx.font = "bold 24px Arial";
+            ctx.fillText("Score: " + score, 20, 50);
+            
+            requestAnimationFrame(update);
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            clearInterval(spawnTimer);
+            uiLayer.classList.remove("hidden");
+            document.getElementById("title").innerText = "GAME OVER!";
+            document.getElementById("finalScore").innerText = "Skor: " + score;
+            document.getElementById("finalScore").classList.remove("hidden");
+            document.getElementById("startBtn").innerText = "Main Lagi";
+        }
+
+        // Kontrol Gerak sentuh/geser
+        canvas.addEventListener("touchmove", (e) => {
+            let clientX = e.touches[0].clientX;
+            bear.x = clientX - (bear.width / 2);
+            
+            // Batas layar kiri kanan
+            if (bear.x < 0) bear.x = 0;
+            if (bear.x + bear.width > canvas.width) bear.x = canvas.width - bear.width;
+            
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Tambahan kontrol untuk tes di PC pakai mouse
+        canvas.addEventListener("mousemove", (e) => {
+            if (!isPlaying) return;
+            bear.x = e.clientX - (bear.width / 2);
+            if (bear.x < 0) bear.x = 0;
+            if (bear.x + bear.width > canvas.width) bear.x = canvas.width - bear.width;
+        });
+    </script>
+</body>
+</html>
