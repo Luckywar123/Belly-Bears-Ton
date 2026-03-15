@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta charset="UTF-8">
+    <title>Dashboard - Belly Bears</title>
+
+    <!-- SUPABASE CONFIG -->
+    <script src="supabase-config.js"></script>
+    <!-- Supabase Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- TON Connect Library -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor("#1a1a1a");
+
+        // === SUPABASE PAKAI CONFIG.JS ===
+        const SUPABASE_URL = window.SUPABASE_CONFIG.URL;
+        const SUPABASE_ANON = window.SUPABASE_CONFIG.ANON_KEY;
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+        let tonConnectUI;
+
+        try {
+            tonConnectUI = new TONConnectUI.TonConnectUI({
+                manifestUrl: 'https://unremorsefully-committable-jammie.ngrok-free.dev/tonconnect-manifest.json',
+                buttonRootId: 'ton-connect-button'
+            });
+        } catch (e) {
+            console.error("TON Connect gagal:", e);
+        }
+
+        // Ambil statistik pemain
+        async function fetchUserStats() {
+            if (!tonConnectUI?.connected) return;
+            const address = tonConnectUI.account.address;
+
+            const { data } = await supabase
+                .from('highscores')
+                .select('best_score, total_coins')
+                .eq('wallet_address', address)
+                .single();
+
+            if (data) {
+                document.getElementById('finalscore').textContent = data.best_score || 0;
+                document.getElementById('total-coins').textContent = data.total_coins || 0;
+            }
+        }
+
+        // Refresh Leaderboard (Podium + Tabel Dinamis)
+        async function refreshLeaderboard() {
+            const { data: leaderboard } = await supabase
+                .from('highscores')
+                .select('*')
+                .order('best_score', { ascending: false })
+                .limit(20);
+
+            if (!leaderboard) return;
+
+            // === ISI PODIUM TOP 3 ===
+            const podiumContainer = document.getElementById('podium-container');
+            podiumContainer.innerHTML = '';
+
+            const top3 = leaderboard.slice(0, 3);
+            const positions = ['second', 'first', 'third'];
+            const medals = ['🥈', '🥇', '🥉'];
+
+            top3.forEach((player, i) => {
+                const div = document.createElement('div');
+                div.className = `podium-item ${positions[i]}`;
+                div.innerHTML = `
+                    <div class="podium-rank">${i + 1}</div>
+                    <div class="podium-avatar">🐻</div>
+                    <div class="podium-name">${player.username || player.wallet_address.slice(0, 8) + '...'}</div>
+                    <div class="podium-score">${player.best_score}</div>
+                    <div class="medal ${['silver','gold','bronze'][i]}">${medals[i]}</div>
+                `;
+                podiumContainer.appendChild(div);
+            });
+
+            // === ISI TABEL RANKING ===
+            const tableBody = document.getElementById('table-body');
+            tableBody.innerHTML = '';
+
+            leaderboard.forEach((player, i) => {
+                const row = document.createElement('div');
+                row.className = 'table-row';
+                row.innerHTML = `
+                    <span class="rank">${i + 1}</span>
+                    <span class="player">${player.username || player.wallet_address.slice(0, 8) + '...'}</span>
+                    <span class="score">${player.best_score}</span>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Refresh semua data
+        async function refreshDashboard() {
+            if (tonConnectUI && tonConnectUI.connected) {
+                document.getElementById('wallet-info').innerHTML = `
+                    ✅ Terkoneksi<br>
+                    <strong id="wallet-address">${tonConnectUI.account.address}</strong>
+                `;
+            } else {
+                document.getElementById('wallet-info').innerHTML = '❌ Belum terkoneksi. Klik tombol di atas!';
+            }
+
+            await fetchUserStats();
+            await refreshLeaderboard();
+        }
+
+        // Jalankan saat halaman dibuka
+        window.onload = () => {
+            refreshDashboard();
+
+            if (tonConnectUI) {
+                tonConnectUI.onStatusChange(() => refreshDashboard());
+            }
+        };
+    </script>
+</head>
+
+<body>
+    <h1 style="color:#f39c12;">🏠 DASHBOARD BELLY BEARS</h1>
+
+    <div class="card">
+        <h2>Wallet Status</h2>
+        <div id="wallet-info">Belum terkoneksi</div>
+        <div id="ton-connect-button"></div>
+        <button class="btn" onclick="refreshDashboard()">🔄 Refresh</button>
+    </div>
+
+    <div class="card">
+        <h2>Statistik Kamu</h2>
+        <p>Skor Tertinggi: <strong id="finalscore">0</strong></p>
+        <p>Total Koin Ditangkap: <strong id="total-coins">0</strong></p>
+    </div>
+
+    <button class="btn" onclick="window.location.href='index.html'">🎮 Kembali ke Game</button>
+
+    <!-- LEADERBOARD -->
+    <div class="card">
+        <h2>🏆 Leaderboard Global</h2>
+        
+        <!-- Podium Dinamis -->
+        <div id="podium-container" class="podium-container"></div>
+
+        <!-- Tabel Dinamis -->
+        <div class="leaderboard-table">
+            <div class="table-header">
+                <span>Rank</span>
+                <span>Player</span>
+                <span>Score</span>
+            </div>
+            <div id="table-body"></div>
+        </div>
+
+        <button class="btn" onclick="refreshLeaderboard()">🔄 Refresh Leaderboard</button>
+    </div>
+
+    <footer>
+        <p style="color:#ffffff; font-size: 0.9rem; margin-top: 2rem;">© 2026 Belly Bears. All rights reserved.</p>
+        <div style="color:#ffffff; font-size: 0.9rem;">
+            <p>Developed by &emsp;<a href="https://github.com/xxxxxx" target="_blank">AurumOil</a></p>
+        </div>
+    </footer>
+</body>
+</html>

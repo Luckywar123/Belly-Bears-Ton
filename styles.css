@@ -1,0 +1,176 @@
+/* Reset & Global */
+* {
+    box-sizing: border-box;
+}
+
+/* Dasar halaman */
+body {
+    margin: 0; 
+    padding: 20px;
+    background: #1a1a1a; 
+    color: white;
+    font-family: Arial, sans-serif; 
+    text-align: center;
+}
+
+/* Card umum */
+.card {
+    padding: 1rem;
+    border-radius: 1rem;
+    background: #2c3e50;
+    margin: 1rem auto;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Tombol */
+.btn {
+    background: #f39c12; 
+    color: white; 
+    border: none;
+    padding: 15px 30px; 
+    font-size: 18px; 
+    border-radius: 10px;
+    margin: 10px; 
+    cursor: pointer;
+}
+
+#wallet-address { 
+    font-size: 16px; 
+    word-break: break-all; 
+}
+
+/* ==================== LEADERBOARD ==================== */
+
+/* Podium Container */
+.podium-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 0.8rem;
+    margin: 1.5rem 0 2rem;
+    min-height: 180px;
+    position: relative;
+}
+
+.podium-item {
+    position: relative;
+    flex: 1;
+    max-width: 120px;
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.podium-item:hover {
+    transform: translateY(-8px);
+}
+
+/* Urutan podium */
+.first  { order: 2; flex-basis: 35%; padding-top: 2rem; }
+.second { order: 1; flex-basis: 35%; }
+.third  { order: 3; flex-basis: 35%; }
+
+/* Avatar & Medal */
+.podium-avatar {
+    font-size: 3rem;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.medal {
+    font-size: 2.8rem;
+    position: absolute;
+    bottom: -3.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    padding-bottom: -1.5rem;
+}
+
+.gold   { color: #ffd700; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+.silver { color: #c0c0c0; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+.bronze { color: #cd7f32; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+
+/* Name & Score */
+.podium-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin: 0.3rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: white;
+}
+
+.podium-score {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #f39c12;
+}
+
+/* Gradient podium */
+.podium-item::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 12px 12px 0 0;
+    z-index: 1;
+    opacity: 0.6;
+}
+
+.first::before  { background: linear-gradient(to top, #f39c12, transparent); }
+.second::before { background: linear-gradient(to top, #bdc3c7, transparent); }
+.third::before  { background: linear-gradient(to top, #cd7f32, transparent); }
+
+/* Rank number */
+.podium-rank {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #f39c12;
+    margin-bottom: 0.5rem;
+}
+
+/* Tabel Ranking */
+.leaderboard-table {
+    background: #34495e;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 3.5rem;
+}
+
+.table-header {
+    display: flex;
+    background: #1f2a38;
+    padding: 0.8rem 1rem;
+    font-weight: bold;
+    color: #f39c12;
+}
+
+.table-row {
+    display: flex;
+    padding: 0.8rem 1rem;
+    border-top: 1px solid #3d566e;
+    align-items: center;
+}
+
+.table-row.your-rank {
+    background: rgba(243, 156, 18, 0.18);
+    border-left: 5px solid #f39c12;
+    font-weight: bold;
+}
+
+.rank   { flex: 0 0 3rem; text-align: center; font-weight: bold; }
+.player { flex: 1; text-align: left; }
+.score  { flex: 0 0 5rem; text-align: right; font-weight: bold; color: #f39c12; }
+
+/* Responsive untuk Telegram Mobile */
+@media (max-width: 380px) {
+    .podium-container {
+        gap: 0.4rem;
+        min-height: 150px;
+    }
+    .podium-avatar { font-size: 4rem; }
+    .medal { font-size: 2.2rem; bottom: -1rem; }
+    .podium-name { font-size: 0.95rem; }
+    .podium-score { font-size: 1.2rem; }
+}
