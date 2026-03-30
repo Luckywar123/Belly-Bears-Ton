@@ -107,10 +107,10 @@
             height: 60 
         };
 
-        // ====================== SAVE SCORE KE DATABASE ======================
+        // ====================== SAVE SCORE (VERSI DIPERBAIKI) ======================
         async function saveScore(finalScore, coinsCaught) {
             if (!tonConnectUI || !tonConnectUI.connected) {
-                console.log("❌ Wallet belum terkoneksi");
+                console.warn("❌ Wallet belum terkoneksi, skor tidak disimpan.");
                 return;
             }
 
@@ -118,18 +118,30 @@
             const tgUser = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
 
+            console.log("💾 Mencoba menyimpan skor:", { 
+                wallet: address.slice(0,8) + "...", 
+                score: finalScore, 
+                coins: coinsCaught 
+            });
+
             try {
-                const { data: current } = await sb
+                // Ambil data lama
+                const { data: current, error: fetchError } = await sb
                     .from('highscores')
                     .select('best_score, total_coins, games_played')
                     .eq('wallet_address', address)
-                    .maybeSingle();   // ← pakai maybeSingle biar tidak error kalau belum ada data
+                    .maybeSingle();
+
+                if (fetchError) console.error("Fetch error:", fetchError);
 
                 const newBest = Math.max(current?.best_score || 0, finalScore);
                 const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
                 const newGames = (current?.games_played || 0) + 1;
 
-                const { error } = await sb
+                console.log("📊 Data baru akan disimpan:", { newBest, newTotalCoins, newGames });
+
+                // Upsert data
+                const { error: upsertError } = await sb
                     .from('highscores')
                     .upsert({
                         wallet_address: address,
@@ -138,13 +150,15 @@
                         total_coins: newTotalCoins,
                         games_played: newGames,
                         updated_at: new Date().toISOString()
-                    });
+                    }, { onConflict: 'wallet_address' });
 
-                if (error) console.error("Gagal upsert:", error);
-                else console.log("✅ Skor berhasil disimpan ke Supabase!");
-
+                if (upsertError) {
+                    console.error("❌ Upsert gagal:", upsertError);
+                } else {
+                    console.log("✅ Highscore BERHASIL disimpan ke Supabase! Best score sekarang:", newBest);
+                }
             } catch (err) {
-                console.error("Error saveScore:", err);
+                console.error("❌ Error saat saveScore:", err);
             }
         }
 
