@@ -31,8 +31,10 @@
         <div id="ton-connect-button"></div>
         
         <!-- Tombol Start Eating -->
-        <button id="startBtn" style="background: none; border: noane; padding: 0; margin: 15px auto; display: block; cursor: pointer;">
-            <img src="assets/start-eating.png" alt="Start Eating" style="width: 85%; max-width: 280px; height: auto;">
+        <button id="startBtn" style="background: none; border: none; padding: 0; margin: 15px auto 10px; display: block; cursor: pointer;">
+            <img src="assets/start-eating.png" 
+                 alt="Start Eating" 
+                 style="width: 85%; max-width: 280px; height: auto;">
         </button>
         
         
@@ -105,15 +107,15 @@
         let score = 0;
         let caughtCoins = 0;
         let items = [];
-        let speed = 3;
+        let speed = 3.5;
         let spawnTimer;
 
-        // Bear object dengan gambar
+        // Bear Images
         const bear = {
-            x: canvas.width / 2 - 40,
-            y: canvas.height - 140,
-            width: 80,
-            height: 80,
+            x: canvas.width / 2 - 45,
+            y: canvas.height - 150,
+            width: 90,
+            height: 90,
             imgPending: new Image(),
             imgEating: new Image(),
             currentImg: null
@@ -123,10 +125,96 @@
         bear.imgEating.src = "assets/Beruang-makan.png";
         bear.currentImg = bear.imgPending;
 
-        // Koin & Bom
+        // Item Images
         const coinImg = new Image();
         coinImg.src = "assets/coin.png";
 
+        const bombImg = new Image();           
+        bombImg.src = "assets/bom.png";
+
+        
+        
+        // ====================== GAME LOGIC ======================
+        function startGame() {
+            isPlaying = true;
+            score = 0;
+            caughtCoins = 0;
+            speed = 3.5;
+            items = [];
+            uiLayer.classList.add("hidden");
+            bear.currentImg = bear.imgPending;
+
+            if (spawnTimer) clearInterval(spawnTimer);
+            spawnTimer = setInterval(spawnItem, 850);
+            update();
+        }
+
+        function spawnItem() {
+            if (!isPlaying) return;
+            const isBomb = Math.random() < 0.28;   // 28% bom
+
+            items.push({
+                x: Math.random() * (canvas.width - 60),
+                y: -60,
+                size: 48,
+                isBomb: isBomb
+            });
+        }
+
+        function update() {
+            if (!isPlaying) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Bear
+            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
+
+            // Update & Draw Items
+            for (let i = items.length - 1; i >= 0; i--) {
+                let item = items[i];
+                item.y += speed;
+
+                if (item.isBomb) {
+                    ctx.drawImage(bombImg, item.x - 8, item.y - 8, item.size + 16, item.size + 16);
+                } else {
+                    ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+                }
+
+                // Collision
+                if (item.y + 40 > bear.y && 
+                    item.x + 40 > bear.x && 
+                    item.x < bear.x + bear.width) {
+
+                    if (item.isBomb) {
+                        score = Math.max(0, score - 40);
+                    } else {
+                        score += 15;
+                        caughtCoins += 1;
+                        bear.currentImg = bear.imgEating;
+                        setTimeout(() => {
+                            if (isPlaying) bear.currentImg = bear.imgPending;
+                        }, 280);
+                    }
+                    items.splice(i, 1);
+                    continue;
+                }
+
+                // Item keluar layar
+                if (item.y > canvas.height + 50) {
+                    if (!item.isBomb) {
+                        gameOver();
+                        return;
+                    }
+                    items.splice(i, 1);
+                }
+            }
+
+            // Draw Score
+            ctx.fillStyle = "white";
+            ctx.font = "bold 28px Arial";
+            ctx.fillText("Score: " + score, 30, 65);
+
+            requestAnimationFrame(update);
+        }
 
 
         // ====================== SAVE SCORE ======================
@@ -174,87 +262,7 @@
             }
         }
 
-        // ====================== GAME LOGIC ======================
-        function startGame() {
-            isPlaying = true;
-            score = 0;
-            caughtCoins = 0;
-            speed = 3;
-            items = [];
-            uiLayer.classList.add("hidden");
-            bear.currentImg = bear.imgPending;
-            if (spawnTimer) clearInterval(spawnTimer);
-            spawnTimer = setInterval(spawnItem, 800);
-            update();
-        }
-
-        function spawnItem() {
-            if (!isPlaying) return;
-            const isBomb = Math.random() < 0.25; // 25% chance bom
-            items.push({
-                x: Math.random() * (canvas.width - 50),
-                y: -50,
-                size: 45,
-                isBomb: isBomb
-            });
-        }
-
-        function update() {
-            if (!isPlaying) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Bear
-            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
-
-            // Update & Draw Items
-            for (let i = items.length - 1; i >= 0; i--) {
-                let item = items[i];
-                item.y += speed;
-
-                if (item.isBomb) {
-                    ctx.drawImage(bombImg, item.x - 5, item.y - 5, item.size + 10, item.size + 10);
-                } else {
-                    ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
-                }
-
-                // Collision Detection
-                if (item.y + 35 > bear.y && 
-                    item.x + 35 > bear.x && 
-                    item.x < bear.x + bear.width) {
-
-                    if (item.isBomb) {
-                        score = Math.max(0, score - 40);   // Bom kurangi 40 poin
-                        // Efek singkat beruang kena bom
-                        bear.currentImg = bear.imgPending;
-                    } else {
-                        score += 15;
-                        caughtCoins += 1;
-                        bear.currentImg = bear.imgEating;
-                        setTimeout(() => {
-                            if (isPlaying) bear.currentImg = bear.imgPending;
-                        }, 280); // transisi makan
-                    }
-                    items.splice(i, 1);
-                    continue;
-                }
-
-                // Item keluar layar
-                if (item.y > canvas.height + 50) {
-                    if (!item.isBomb) {
-                        gameOver();
-                        return;
-                    }
-                    items.splice(i, 1);
-                }
-            }
-
-            // Draw Score
-            ctx.fillStyle = "white";
-            ctx.font = "bold 28px Arial";
-            ctx.fillText("Score: " + score, 30, 65);
-
-            requestAnimationFrame(update);
-        }
+        // ====================== Game Over ======================
 
         function gameOver() {
             isPlaying = false;
@@ -287,15 +295,10 @@
             const isConnected = tonConnectUI && tonConnectUI.connected;
 
             if (isConnected) {
-                startBtn.disabled = false;
-                startBtn.innerText = "🎮 Start Eating";
-                startBtn.style.backgroundColor = "#27ae60";
-                document.getElementById('ton-connect-button').style.display = 'none';
+                // Tombol gambar tetap muncul, hanya ubah opacity
+                startBtn.style.opacity = "1";
             } else {
-                startBtn.disabled = true;
-                startBtn.innerText = "Connect Wallet First";
-                startBtn.style.backgroundColor = "";
-                document.getElementById('ton-connect-button').style.display = 'block';
+                startBtn.style.opacity = "0.5";
             }
         }
 
