@@ -21,8 +21,8 @@
 
 <body>
 
-    <!-- LOADING SCREEN -->
-    <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;">
+    <!-- LOADING SCREEN (hidden by default) -->
+    <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100;">
         <img src="assets/ICON.png" alt="Belly Bears" style="width: 120px; height: 120px; margin-bottom: 20px;">
         <h2 style="color: #f39c12; margin: 0 0 15px 0;">Loading Assets...</h2>
         <div style="width: 200px; height: 8px; background: #333; border-radius: 10px; overflow: hidden;">
@@ -41,6 +41,7 @@
         
         <div id="ton-connect-button"></div>
         
+        <!-- Tombol Start Eating -->
         <button id="startBtn" style="background: none; border: none; padding: 0; margin: 15px auto 10px; display: block; cursor: pointer;">
             <img src="assets/start-eating.png" alt="Start Eating" style="width: 85%; max-width: 280px; height: auto;">
         </button>
@@ -338,13 +339,43 @@
         setTimeout(initTonConnect, 800);
         updateStartButton();
 
-        startBtn.addEventListener("click", () => {
+        // ====================== START GAME WITH LOADING ======================
+        startBtn.addEventListener("click", async () => {
             if (!tonConnectUI || !tonConnectUI.connected) {
                 alert("⚠️ Please connect your TON wallet first!");
                 return;
             }
-            startGame();
+
+            // Tampilkan loading screen
+            const loadingScreen = document.getElementById('loading-screen');
+            loadingScreen.style.display = 'flex';
+
+            // Reset progress
+            document.getElementById('loading-bar').style.width = '0%';
+            document.getElementById('loading-text').textContent = 'Preparing game...';
+
+            // Simulasi loading (karena gambar sudah di-preload, kita kasih delay kecil biar terlihat)
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 25;
+                if (progress > 100) progress = 100;
+                document.getElementById('loading-bar').style.width = progress + '%';
+            }, 120);
+
+            // Tunggu sebentar lalu mulai game
+            setTimeout(() => {
+                clearInterval(progressInterval);
+                document.getElementById('loading-bar').style.width = '100%';
+                document.getElementById('loading-text').textContent = 'Starting game...';
+
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                    startGame();        // ← Mulai game sesungguhnya
+                }, 400);
+            }, 1200);
         });
+
+
     });
 </script>
 </body>
