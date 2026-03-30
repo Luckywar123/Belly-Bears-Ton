@@ -21,35 +21,37 @@
 
 <body>
 
+    <!-- LOADING SCREEN -->
+    <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;">
+        <img src="assets/ICON.png" alt="Belly Bears" style="width: 120px; height: 120px; margin-bottom: 20px;">
+        <h2 style="color: #f39c12; margin: 0 0 15px 0;">Loading Assets...</h2>
+        <div style="width: 200px; height: 8px; background: #333; border-radius: 10px; overflow: hidden;">
+            <div id="loading-bar" style="width: 0%; height: 100%; background: #f39c12; transition: width 0.3s;"></div>
+        </div>
+        <p id="loading-text" style="color: #aaa; margin-top: 10px; font-size: 0.95rem;">Preparing game...</p>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
-        <div id="ui-layer">
+    <div id="ui-layer" style="display: none;">
+        <!-- isi ui-layer kamu tetap sama -->
         <h1 id="title" style="color:#f39c12;">BELLY BEARS</h1>
         <p id="desc">Catch the coins, don't let them escape!</p>
         <h2 id="finalScore" class="hidden">Final Score: 0</h2>
         
         <div id="ton-connect-button"></div>
         
-        <!-- Tombol Start Eating -->
         <button id="startBtn" style="background: none; border: none; padding: 0; margin: 15px auto 10px; display: block; cursor: pointer;">
-            <img src="assets/start-eating.png" 
-                 alt="Start Eating" 
-                 style="width: 85%; max-width: 280px; height: auto;">
+            <img src="assets/start-eating.png" alt="Start Eating" style="width: 85%; max-width: 280px; height: auto;">
         </button>
-        
         
         <button onclick="window.location.href='dashboard.html'" 
                 style="background: none; border: none; padding: 0; margin: 20px auto 10px; display: block; cursor: pointer;">
-            <img src="assets/Dashboard.png" 
-                 alt="Dashboard" 
-                 style="width: 85%; 
-                        max-width: 260px; 
-                        height: auto; 
-                        display: block; 
-                        margin: 0 auto; 
-                        border-radius: 12px;">
+            <img src="assets/Dashboard.png" alt="Dashboard" style="width: 85%; max-width: 260px; height: auto; border-radius: 12px;">
         </button>
     </div>
+
+   
 
     <!-- ==================== MAIN SCRIPT ==================== -->
 <script>
@@ -65,6 +67,31 @@
     );
 
     let tonConnectUI = null;
+
+
+
+        // Loading Management
+    let imagesLoaded = 0;
+    const totalImages = 6; // Beruang pending, eating, coin, bom, start-eating, dashboard
+
+    function updateLoadingProgress() {
+        const percent = Math.floor((imagesLoaded / totalImages) * 100);
+        document.getElementById('loading-bar').style.width = percent + '%';
+        document.getElementById('loading-text').textContent = `Loading... ${percent}%`;
+    }
+
+    function checkAllImagesLoaded() {
+        imagesLoaded++;
+        updateLoadingProgress();
+
+        if (imagesLoaded >= totalImages) {
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.display = 'none';
+                document.getElementById('ui-layer').style.display = 'block';
+                console.log("✅ All assets loaded successfully");
+            }, 600);
+        }
+    }
 
     // ==================== GAME SETUP ====================
     const canvas = document.getElementById("gameCanvas");
@@ -97,14 +124,26 @@
 
     bear.imgPending.src = "assets/Beruang-pending.png";
     bear.imgEating.src = "assets/Beruang-makan.png";
+    bear.imgPending.onload = checkAllImagesLoaded;
+    bear.imgEating.onload = checkAllImagesLoaded;
     bear.currentImg = bear.imgPending;
 
     // Item Images
-    const coinImg = new Image();
     coinImg.src = "assets/coin.png";
-
-    const bombImg = new Image();
     bombImg.src = "assets/bom.png";
+    coinImg.onload = checkAllImagesLoaded;
+    bombImg.onload = checkAllImagesLoaded;
+
+
+    // Tombol Images (opsional tapi bagus)
+    const startEatingImg = new Image();
+    startEatingImg.src = "assets/start-eating.png";
+    startEatingImg.onload = checkAllImagesLoaded;
+
+    const dashboardImg = new Image();
+    dashboardImg.src = "assets/Dashboard.png";
+    dashboardImg.onload = checkAllImagesLoaded;
+
 
     // Wait for critical images to load before allowing game to start
     let imagesLoaded = 0;
