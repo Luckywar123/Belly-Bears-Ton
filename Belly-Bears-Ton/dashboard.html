@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta charset="UTF-8">
+    <title>Dashboard - Belly Bears</title>
+
+    <!-- SUPABASE CONFIG -->
+    <script src="supabase-config.js"></script>
+    <!-- Supabase Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- TON Connect Library -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <h1 style="color:#f39c12;">🏠 DASHBOARD BELLY BEARS</h1>
+
+    <div class="card">
+        <h2>Wallet Status</h2>
+        <div id="wallet-info" style="font-size: 1.1rem; font-weight: bold; text-align: center; padding: 12px; border-radius: 12px; background: #2c3e50; margin-bottom: 12px;">
+            ❌ Belum terkoneksi
+        </div>
+
+        <!-- Tombol auto TON Connect -->
+        <div id="ton-connect-button" style="margin: 12px 0;"></div>
+
+        <!-- Fallback hanya kalau gagal (sembunyikan kalau connected) -->
+        <div id="fallback-connect" style="display:none; margin: 12px 0; padding: 12px; background: #34495e; border-radius: 12px; text-align: center;">
+            <p style="color: #ffcc00; margin-bottom: 12px; font-size: 0.95rem;">
+                ⚠️ Tombol connect otomatis gagal muncul. Coba manual:
+            </p>
+            <button id="manual-connect-btn" class="btn" style="background: #3498db; width: 100%; margin-bottom: 8px;">
+                🔗 Connect Wallet Manual
+            </button>
+            <button id="retry-init-btn" class="btn" style="background: #f39c12; width: 100%;">
+                🔄 Coba Ulang TON Connect
+            </button>
+        </div>
+
+        <button class="btn" onclick="refreshDashboard()" style="width: 100%; background: #27ae60;">
+            🔄 Refresh Data
+        </button>
+    </div>
+
+    <div class="card">
+        <h2>Statistik Kamu</h2>
+        <p>Skor Tertinggi: <strong id="finalscore">0</strong></p>
+        <p>Total Koin Ditangkap: <strong id="total-coins">0</strong></p>
+    </div>
+
+    <button class="btn" onclick="window.location.href='index.html'">
+        🎮 Kembali ke Game
+    </button>
+
+    <div class="card">
+        <h2>🏆 Leaderboard Global</h2>
+        <div id="podium-container" class="podium-container"></div>
+        <div class="leaderboard-table">
+            <div class="table-header">
+                <span>Rank</span>
+                <span>Player</span>
+                <span>Score</span>
+            </div>
+            <div id="table-body"></div>
+        </div>
+        <button class="btn" onclick="refreshLeaderboard()">
+            🔄 Refresh Leaderboard
+        </button>
+    </div>
+
+    <footer>
+        <p style="color:#ffffff; font-size: 0.9rem; margin-top: 2rem;">
+            © 2026 Belly Bears. All rights reserved.
+        </p>
+        <div style="color:#ffffff; font-size: 0.9rem;">
+            <p>Developed by &emsp;<a href="https://github.com/xxxxxx" target="_blank">AurumOil</a></p>
+        </div>
+    </footer>
+
+    <!-- SCRIPT UTAMA -->
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor("#1a1a1a");
+
+        // SUPABASE CLIENT
+        const SUPABASE_URL = window.SUPABASE_CONFIG.URL;
+        const SUPABASE_ANON = window.SUPABASE_CONFIG.ANON_KEY;
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+        let tonConnectUI = null;
+
+
+        async function initTonConnect() {
+            if (tonConnectUI) return;
+
+            try {
+                console.log("🔄 Mulai init TON Connect...");
+
+                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                    manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect-button',
+                    uiPreferences: { theme: 'DARK', language: 'id' }
+                    // ← walletsListConfiguration DIHAPUS SEMENTARA (pakai default = semua wallet)
+                });
+
+                const restored = await tonConnectUI.connectionRestored;
+                console.log("✅ Connection restored:", restored);
+
+                tonConnectUI.onStatusChange(() => refreshDashboard());
+
+                // Sembunyikan fallback
+                document.getElementById('fallback-connect').style.display = 'none';
+
+                console.log("🎉 TON Connect SIAP! Tombol harus muncul sekarang.");
+
+            } catch (e) {
+                console.error("❌ Init TON gagal:", e);
+                document.getElementById('fallback-connect').style.display = 'block';
+                showFallback();
+            }
+        }
+
+        // Fungsi showFallback tetap pakai yang lama kamu
+        function showFallback() {
+            document.getElementById('fallback-connect').style.display = 'block';
+            document.getElementById('wallet-info').innerHTML = 
+                '❌ Koneksi wallet gagal otomatis<br><small>Coba tombol manual di bawah</small>';
+        }
+
+
+
+
+
+        // Fungsi fetch stats
+        async function fetchUserStats() {
+            if (!tonConnectUI || !tonConnectUI.connected) return;
+            const address = tonConnectUI.account.address;
+
+            try {
+                const { data } = await sb
+                    .from('highscores')
+                    .select('best_score, total_coins')
+                    .eq('wallet_address', address)
+                    .single();
+
+                if (data) {
+                    document.getElementById('finalscore').textContent = data.best_score || 0;
+                    document.getElementById('total-coins').textContent = data.total_coins || 0;
+                }
+            } catch (err) {
+                console.error("Error fetch stats:", err);
+            }
+        }
+
+        // Fungsi refresh leaderboard
+        async function refreshLeaderboard() {
+            console.log("refreshLeaderboard dipanggil");
+            try {
+                const { data: leaderboard, error } = await sb
+                    .from('highscores')
+                    .select('*')
+                    .order('best_score', { ascending: false })
+                    .limit(20);
+
+                if (error) {
+                    console.error("Supabase error:", error);
+                    return;
+                }
+
+                console.log("Data leaderboard:", leaderboard);
+
+                if (!leaderboard || leaderboard.length === 0) {
+                    console.log("Tidak ada data highscore sama sekali");
+                    return;
+                }
+
+                const podiumContainer = document.getElementById('podium-container');
+                podiumContainer.innerHTML = '';
+
+                const top3 = leaderboard.slice(0, 3);
+                const positions = ['second', 'first', 'third'];
+                const medals = ['🥈', '🥇', '🥉'];
+
+                top3.forEach((player, i) => {
+                    const div = document.createElement('div');
+                    div.className = `podium-item ${positions[i]}`;
+                    div.innerHTML = `
+                        <div class="podium-rank">${i + 1}</div>
+                        <div class="podium-avatar">🐻</div>
+                        <div class="podium-name">${player.username || player.wallet_address.slice(0, 8) + '...'}</div>
+                        <div class="podium-score">${player.best_score}</div>
+                        <div class="medal ${['silver','gold','bronze'][i]}">${medals[i]}</div>
+                    `;
+                    podiumContainer.appendChild(div);
+                });
+
+                const tableBody = document.getElementById('table-body');
+                tableBody.innerHTML = '';
+
+                leaderboard.forEach((player, i) => {
+                    const row = document.createElement('div');
+                    row.className = 'table-row';
+                    row.innerHTML = `
+                        <span class="rank">${i + 1}</span>
+                        <span class="player">${player.username || player.wallet_address.slice(0, 8) + '...'}</span>
+                        <span class="score">${player.best_score}</span>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } catch (err) {
+                console.error("Leaderboard fetch error:", err);
+            }
+        }
+
+        // Refresh dashboard
+        async function refreshDashboard() {
+            const walletInfo = document.getElementById('wallet-info');
+
+            if (tonConnectUI && tonConnectUI.connected) {
+                walletInfo.innerHTML = `
+                    ✅ Terkoneksi<br>
+                    <strong>${tonConnectUI.account.address.slice(0,8)}...${tonConnectUI.account.address.slice(-6)}</strong>
+                `;
+                document.getElementById('fallback-connect').style.display = 'none'; // Hilang total!
+            } else {
+                walletInfo.innerHTML = '❌ Belum terkoneksi';
+            }
+
+            await fetchUserStats();
+            await refreshLeaderboard();
+        }
+
+        // INIT
+        document.addEventListener('DOMContentLoaded', () => {
+            // Coba init pertama
+            setTimeout(initTonConnect, 900); // delay kecil biar library sempat load
+
+            // Fallback manual connect
+            document.getElementById('manual-connect-btn')?.addEventListener('click', () => {
+                if (tonConnectUI) {
+                    tonConnectUI.connectWallet();
+                } else {
+                    alert("TON Connect belum siap. Coba refresh halaman atau cek koneksi.");
+                }
+            });
+
+            // Tombol retry init
+            document.getElementById('retry-init-btn')?.addEventListener('click', () => {
+                initAttempted = false;
+                initTonConnect();
+            });
+
+            // Load data awal
+            refreshDashboard();
+            setTimeout(() => {
+                if (tonConnectUI && tonConnectUI.connected) refreshDashboard();
+            }, 1500);
+        });
+    </script>
+</body>
+</html>

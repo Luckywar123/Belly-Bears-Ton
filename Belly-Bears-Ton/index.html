@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Belly Bears - Telegram Game</title>
+    
+
+
+    
+    <!-- CSS eksternal -->
+    <link rel="stylesheet" href="game.css">
+    
+    <!-- SUPABASE CONFIG -->
+    <script src="supabase-config.js"></script>
+    <!-- Supabase Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- TON Connect Library -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+</head>
+
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <h1 id="title" style="color:#f39c12;">BELLY BEARS</h1>
+        <p id="desc">Tangkap koin, jangan sampai lolos!</p>
+        <h2 id="finalScore" class="hidden">Skor Akhir: 0</h2>
+        
+        <div id="ton-connect-button"></div>
+        
+        <button id="startBtn" class="btn">🎮 Mulai Makan</button>
+        <button class="btn" onclick="window.location.href='dashboard.html'">
+            🏠 Dashboard Saya
+        </button>
+    </div>
+
+    <!-- ==================== SCRIPT UTAMA ==================== -->
+    <script>
+        // Telegram Web App setup
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor("#1a1a1a");
+
+        // ====================== SUPABASE CLIENT ======================
+        const SUPABASE_URL = window.SUPABASE_CONFIG.URL;
+        const SUPABASE_ANON = window.SUPABASE_CONFIG.ANON_KEY;
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+        // ====================== TON CONNECT ======================
+        let tonConnectUI = null;
+
+        async function initTonConnect() {
+            if (tonConnectUI) return;
+
+            try {
+                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                    manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect-button',
+                    uiPreferences: { theme: 'DARK', language: 'id' },
+
+                    walletsListConfiguration: {  // ← sama seperti di dashboard
+                        includeWallets: [ /* isi sama persis dengan yang di atas */ ]
+                    }
+                });
+
+                const restored = await tonConnectUI.connectionRestored;
+                console.log("✅ Connection restored:", restored);
+
+                tonConnectUI.onStatusChange(() => updateStartButton());
+
+            } catch (e) {
+                console.error("❌ Init TON gagal:", e);
+            }
+        }
+        // ====================== GAME VARIABLES ======================
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const uiLayer = document.getElementById("ui-layer");
+        const startBtn = document.getElementById("startBtn");
+        const finalScoreEl = document.getElementById("finalScore");
+        const titleEl = document.getElementById("title");
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let isPlaying = false;
+        let score = 0;
+        let caughtCoins = 0;
+        let items = [];
+        let speed = 3;
+        let spawnTimer;
+        const bear = { 
+            x: canvas.width / 2 - 30, 
+            y: canvas.height - 120, 
+            width: 60, 
+            height: 60 
+        };
+
+        // ====================== SAVE SCORE KE DATABASE ======================
+        async function saveScore(finalScore, coinsCaught) {
+            if (!tonConnectUI || !tonConnectUI.connected) {
+                console.log("Wallet belum terkoneksi, skor tidak disimpan.");
+                return;
+            }
+
+            const address = tonConnectUI.account.address;
+            const tgUser = tg.initDataUnsafe?.user;
+            const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
+
+            try {
+                const { data: current } = await sb
+                    .from('highscores')
+                    .select('best_score, total_coins, games_played')
+                    .eq('wallet_address', address)
+                    .single();
+
+                const newBest = Math.max(current?.best_score || 0, finalScore);
+                const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
+                const newGames = (current?.games_played || 0) + 1;
+
+                const { error } = await sb
+                    .from('highscores')
+                    .upsert({
+                        wallet_address: address,
+                        username: username,
+                        best_score: newBest,
+                        total_coins: newTotalCoins,
+                        games_played: newGames,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'wallet_address' });
+
+                if (error) {
+                    console.error("Gagal simpan skor:", error);
+                } else {
+                    console.log("✅ Highscore tersimpan ke Supabase!");
+                }
+            } catch (err) {
+                console.error("Error saat save score:", err);
+            }
+        }
+
+        // ====================== GAME LOGIC ======================
+        function startGame() {
+            isPlaying = true;
+            score = 0;
+            caughtCoins = 0;
+            speed = 3;
+            items = [];
+            uiLayer.classList.add("hidden");
+            if (spawnTimer) clearInterval(spawnTimer);
+            spawnTimer = setInterval(spawnItem, 1000);
+            update();
+        }
+
+        function spawnItem() {
+            if (!isPlaying) return;
+            items.push({ 
+                x: Math.random() * (canvas.width - 40), 
+                y: -40, 
+                size: 40 
+            });
+        }
+
+        function update() {
+            if (!isPlaying) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Gambar bear
+            ctx.font = "50px Arial";
+            ctx.fillText("🐻", bear.x, bear.y + 45);
+
+            // Update & gambar koin
+            for (let i = items.length - 1; i >= 0; i--) {
+                let item = items[i];
+                item.y += speed;
+                ctx.fillText("💰", item.x, item.y + 30);
+
+                // Cek tabrakan
+                if (item.y + 20 > bear.y && 
+                    item.x + 30 > bear.x && 
+                    item.x < bear.x + bear.width) {
+                    score += 10;
+                    caughtCoins += 1;
+                    items.splice(i, 1);
+                    if (score % 50 === 0) speed += 0.5;
+                    continue;
+                }
+
+                // Koin lolos → game over
+                if (item.y > canvas.height) {
+                    gameOver();
+                    return;
+                }
+            }
+
+            // Tampilkan skor real-time
+            ctx.fillStyle = "white";
+            ctx.font = "bold 24px Arial";
+            ctx.fillText("Score: " + score, 20, 50);
+
+            requestAnimationFrame(update);
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            clearInterval(spawnTimer);
+            uiLayer.classList.remove("hidden");
+            titleEl.innerText = "GAME OVER!";
+            finalScoreEl.innerText = "Skor: " + score;
+            finalScoreEl.classList.remove("hidden");
+            startBtn.innerText = "Main Lagi";
+
+            // Simpan skor
+            saveScore(score, caughtCoins);
+        }
+
+        // ====================== KONTROL INPUT ======================
+        canvas.addEventListener("touchmove", (e) => {
+            if (!isPlaying) return;
+            bear.x = e.touches[0].clientX - (bear.width / 2);
+            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener("mousemove", (e) => {
+            if (!isPlaying) return;
+            bear.x = e.clientX - (bear.width / 2);
+            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+        });
+
+        // ====================== UPDATE TOMBOL START ======================
+        function updateStartButton() {
+            const startBtn = document.getElementById("startBtn");
+            const isConnected = tonConnectUI && tonConnectUI.connected;
+
+            if (isConnected) {
+                startBtn.disabled = false;
+                startBtn.innerText = "🎮 Mulai Makan";
+                startBtn.style.opacity = "1";
+                startBtn.style.backgroundColor = "#27ae60";
+                // Sembunyikan tombol TON otomatis kalau sudah konek
+                document.getElementById('ton-connect-button').style.display = 'none';
+            } else {
+                startBtn.disabled = true;
+                startBtn.innerText = "Hubungkan Wallet dulu";
+                startBtn.style.opacity = "0.6";
+                document.getElementById('ton-connect-button').style.display = 'block';
+            }
+        }
+        // ====================== INIT SEMUA ======================
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initTonConnect, 900);   // ← panggil yang benar
+            updateStartButton();
+
+            startBtn.addEventListener("click", () => {
+                if (!tonConnectUI || !tonConnectUI.connected) {
+                    alert("⚠️ Hubungkan wallet TON dulu ya Bears!");
+                    return;
+                }
+                startGame();
+            });
+        });
+
+            // Event startBtn tetap
+            startBtn.addEventListener("click", () => {
+                if (!tonConnectUI || !tonConnectUI.connected) {
+                    alert("⚠️ Hubungkan wallet TON dulu ya Bears!");
+                    return;
+                }
+                startGame();
+            });
+    </script>
+</body>
+</html>
