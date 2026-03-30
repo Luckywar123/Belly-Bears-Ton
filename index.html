@@ -52,7 +52,7 @@
     </div>
 
     <!-- ==================== MAIN SCRIPT ==================== -->
-    <script>
+<script>
     // Telegram Web App setup
     const tg = window.Telegram.WebApp;
     tg.ready();
@@ -106,6 +106,23 @@
     const bombImg = new Image();
     bombImg.src = "assets/bom.png";
 
+    // Wait for critical images to load before allowing game to start
+    let imagesLoaded = 0;
+    const totalCriticalImages = 4;
+
+    function checkImagesLoaded() {
+        imagesLoaded++;
+        if (imagesLoaded === totalCriticalImages) {
+            console.log("✅ All critical images loaded");
+            updateStartButton();
+        }
+    }
+
+    bear.imgPending.onload = checkImagesLoaded;
+    bear.imgEating.onload = checkImagesLoaded;
+    coinImg.onload = checkImagesLoaded;
+    bombImg.onload = checkImagesLoaded;
+
     // ====================== TON CONNECT ======================
     async function initTonConnect() {
         if (tonConnectUI) return;
@@ -158,6 +175,7 @@
 
     function update() {
         if (!isPlaying) return;
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Draw Bear
@@ -169,9 +187,14 @@
             item.y += speed;
 
             if (item.isBomb) {
-                ctx.drawImage(bombImg, item.x - 8, item.y - 8, item.size + 16, item.size + 16);
+                // Gunakan bombImg dengan pengecekan aman
+                if (bombImg.complete) {
+                    ctx.drawImage(bombImg, item.x - 8, item.y - 8, item.size + 16, item.size + 16);
+                }
             } else {
-                ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+                if (coinImg.complete) {
+                    ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+                }
             }
 
             // Collision
@@ -190,7 +213,7 @@
                 continue;
             }
 
-            // Miss (hanya koin yang bisa game over)
+            // Miss
             if (item.y > canvas.height + 50) {
                 if (!item.isBomb) {
                     gameOver();
@@ -223,7 +246,7 @@
     // ====================== SAVE SCORE ======================
     async function saveScore(finalScore, coinsCaught) {
         if (!tonConnectUI || !tonConnectUI.connected) return;
-
+        // ... (kode saveScore kamu tetap sama)
         const address = tonConnectUI.account.address;
         const tgUser = tg.initDataUnsafe?.user;
         const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
@@ -247,8 +270,6 @@
                 games_played: newGames,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'wallet_address' });
-
-            console.log("✅ Score saved successfully!");
         } catch (err) {
             console.error("Error saving score:", err);
         }
