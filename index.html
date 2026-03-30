@@ -31,8 +31,8 @@
         <div id="ton-connect-button"></div>
         
         <!-- Tombol Start Eating -->
-        <button id="startBtn" class="btn" style="margin-bottom: 15px;">
-            🎮 Start Eating
+        <button id="startBtn" style="background: none; border: noane; padding: 0; margin: 15px auto; display: block; cursor: pointer;">
+            <img src="assets/start-eating.png" alt="Start Eating" style="width: 85%; max-width: 280px; height: auto;">
         </button>
         
         
@@ -90,7 +90,7 @@
             }
         }
 
-        // ====================== GAME VARIABLES ======================
+        // ==================== GAME SETUP ====================
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const uiLayer = document.getElementById("ui-layer");
@@ -107,12 +107,27 @@
         let items = [];
         let speed = 3;
         let spawnTimer;
-        const bear = { 
-            x: canvas.width / 2 - 30, 
-            y: canvas.height - 120, 
-            width: 60, 
-            height: 60 
+
+        // Bear object dengan gambar
+        const bear = {
+            x: canvas.width / 2 - 40,
+            y: canvas.height - 140,
+            width: 80,
+            height: 80,
+            imgPending: new Image(),
+            imgEating: new Image(),
+            currentImg: null
         };
+
+        bear.imgPending.src = "assets/Beruang-pending.png";
+        bear.imgEating.src = "assets/Beruang-makan.png";
+        bear.currentImg = bear.imgPending;
+
+        // Koin & Bom
+        const coinImg = new Image();
+        coinImg.src = "assets/coin.png";
+
+
 
         // ====================== SAVE SCORE ======================
         async function saveScore(finalScore, coinsCaught) {
@@ -167,57 +182,76 @@
             speed = 3;
             items = [];
             uiLayer.classList.add("hidden");
+            bear.currentImg = bear.imgPending;
             if (spawnTimer) clearInterval(spawnTimer);
-            spawnTimer = setInterval(spawnItem, 1000);
+            spawnTimer = setInterval(spawnItem, 800);
             update();
         }
 
         function spawnItem() {
             if (!isPlaying) return;
-            items.push({ 
-                x: Math.random() * (canvas.width - 40), 
-                y: -40, 
-                size: 40 
+            const isBomb = Math.random() < 0.25; // 25% chance bom
+            items.push({
+                x: Math.random() * (canvas.width - 50),
+                y: -50,
+                size: 45,
+                isBomb: isBomb
             });
         }
 
         function update() {
             if (!isPlaying) return;
-
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw bear
-            ctx.font = "50px Arial";
-            ctx.fillText("🐻", bear.x, bear.y + 45);
+            // Draw Bear
+            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
 
-            // Update & draw coins
+            // Update & Draw Items
             for (let i = items.length - 1; i >= 0; i--) {
                 let item = items[i];
                 item.y += speed;
-                ctx.fillText("💰", item.x, item.y + 30);
 
-                // Collision
-                if (item.y + 20 > bear.y && 
-                    item.x + 30 > bear.x && 
+                if (item.isBomb) {
+                    ctx.drawImage(bombImg, item.x - 5, item.y - 5, item.size + 10, item.size + 10);
+                } else {
+                    ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+                }
+
+                // Collision Detection
+                if (item.y + 35 > bear.y && 
+                    item.x + 35 > bear.x && 
                     item.x < bear.x + bear.width) {
-                    score += 10;
-                    caughtCoins += 1;
+
+                    if (item.isBomb) {
+                        score = Math.max(0, score - 40);   // Bom kurangi 40 poin
+                        // Efek singkat beruang kena bom
+                        bear.currentImg = bear.imgPending;
+                    } else {
+                        score += 15;
+                        caughtCoins += 1;
+                        bear.currentImg = bear.imgEating;
+                        setTimeout(() => {
+                            if (isPlaying) bear.currentImg = bear.imgPending;
+                        }, 280); // transisi makan
+                    }
                     items.splice(i, 1);
-                    if (score % 50 === 0) speed += 0.5;
                     continue;
                 }
 
-                // Coin escaped → Game Over
-                if (item.y > canvas.height) {
-                    gameOver();
-                    return;
+                // Item keluar layar
+                if (item.y > canvas.height + 50) {
+                    if (!item.isBomb) {
+                        gameOver();
+                        return;
+                    }
+                    items.splice(i, 1);
                 }
             }
 
-            // Real-time score
+            // Draw Score
             ctx.fillStyle = "white";
-            ctx.font = "bold 24px Arial";
-            ctx.fillText("Score: " + score, 20, 50);
+            ctx.font = "bold 28px Arial";
+            ctx.fillText("Score: " + score, 30, 65);
 
             requestAnimationFrame(update);
         }
