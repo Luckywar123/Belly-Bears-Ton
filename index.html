@@ -53,268 +53,239 @@
 
     <!-- ==================== MAIN SCRIPT ==================== -->
     <script>
-        // Telegram Web App setup
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
-        tg.setHeaderColor("#1a1a1a");
+    // Telegram Web App setup
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+    tg.setHeaderColor("#1a1a1a");
 
-        // ====================== SUPABASE CLIENT ======================
-        const SUPABASE_URL = window.SUPABASE_CONFIG.URL;
-        const SUPABASE_ANON = window.SUPABASE_CONFIG.ANON_KEY;
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    const sb = supabase.createClient(
+        window.SUPABASE_CONFIG.URL, 
+        window.SUPABASE_CONFIG.ANON_KEY
+    );
 
-        // ====================== TON CONNECT ======================
-        let tonConnectUI = null;
+    let tonConnectUI = null;
 
-        async function initTonConnect() {
-            if (tonConnectUI) return;
+    // ==================== GAME SETUP ====================
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const uiLayer = document.getElementById("ui-layer");
+    const startBtn = document.getElementById("startBtn");
+    const finalScoreEl = document.getElementById("finalScore");
+    const titleEl = document.getElementById("title");
 
-            try {
-                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-                    manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
-                    buttonRootId: 'ton-connect-button',
-                    uiPreferences: { theme: 'DARK', language: 'en' }
-                });
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-                await tonConnectUI.connectionRestored;
-                console.log("✅ TON Connect restored");
+    let isPlaying = false;
+    let score = 0;
+    let caughtCoins = 0;
+    let items = [];
+    let speed = 3.5;
+    let spawnTimer;
 
-                tonConnectUI.onStatusChange((wallet) => {
-                    console.log("Status changed:", wallet ? "Connected" : "Disconnected");
-                    updateStartButton();
-                });
+    // Bear Images
+    const bear = {
+        x: canvas.width / 2 - 45,
+        y: canvas.height - 150,
+        width: 90,
+        height: 90,
+        imgPending: new Image(),
+        imgEating: new Image(),
+        currentImg: null
+    };
 
-                updateStartButton();
+    bear.imgPending.src = "assets/Beruang-pending.png";
+    bear.imgEating.src = "assets/Beruang-makan.png";
+    bear.currentImg = bear.imgPending;
 
-            } catch (e) {
-                console.error("❌ TON Connect init failed:", e);
-            }
+    // Item Images
+    const coinImg = new Image();
+    coinImg.src = "assets/coin.png";
+
+    const bombImg = new Image();
+    bombImg.src = "assets/bom.png";
+
+    // ====================== TON CONNECT ======================
+    async function initTonConnect() {
+        if (tonConnectUI) return;
+        try {
+            tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
+                buttonRootId: 'ton-connect-button',
+                uiPreferences: { theme: 'DARK', language: 'en' }
+            });
+
+            await tonConnectUI.connectionRestored;
+            tonConnectUI.onStatusChange(() => updateStartButton());
+            updateStartButton();
+        } catch (e) {
+            console.error("TON Connect failed:", e);
+        }
+    }
+
+    // ====================== GAME LOGIC ======================
+    function startGame() {
+        if (!tonConnectUI || !tonConnectUI.connected) {
+            alert("Please connect your TON wallet first!");
+            return;
         }
 
-        // ==================== GAME SETUP ====================
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const uiLayer = document.getElementById("ui-layer");
-        const startBtn = document.getElementById("startBtn");
-        const finalScoreEl = document.getElementById("finalScore");
-        const titleEl = document.getElementById("title");
-
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        let isPlaying = false;
-        let score = 0;
-        let caughtCoins = 0;
-        let items = [];
-        let speed = 3.5;
-        let spawnTimer;
-
-        // Bear Images
-        const bear = {
-            x: canvas.width / 2 - 45,
-            y: canvas.height - 150,
-            width: 90,
-            height: 90,
-            imgPending: new Image(),
-            imgEating: new Image(),
-            currentImg: null
-        };
-
-        bear.imgPending.src = "assets/Beruang-pending.png";
-        bear.imgEating.src = "assets/Beruang-makan.png";
+        isPlaying = true;
+        score = 0;
+        caughtCoins = 0;
+        speed = 3.5;
+        items = [];
+        uiLayer.classList.add("hidden");
         bear.currentImg = bear.imgPending;
 
-        // Item Images
-        const coinImg = new Image();
-        coinImg.src = "assets/coin.png";
+        if (spawnTimer) clearInterval(spawnTimer);
+        spawnTimer = setInterval(spawnItem, 850);
+        update();
+    }
 
-        const bombImg = new Image();           
-        bombImg.src = "assets/bom.png";
+    function spawnItem() {
+        if (!isPlaying) return;
+        const isBomb = Math.random() < 0.28;
 
-        
-        
-        // ====================== GAME LOGIC ======================
-        function startGame() {
-            isPlaying = true;
-            score = 0;
-            caughtCoins = 0;
-            speed = 3.5;
-            items = [];
-            uiLayer.classList.add("hidden");
-            bear.currentImg = bear.imgPending;
-
-            if (spawnTimer) clearInterval(spawnTimer);
-            spawnTimer = setInterval(spawnItem, 850);
-            update();
-        }
-
-        function spawnItem() {
-            if (!isPlaying) return;
-            const isBomb = Math.random() < 0.28;   // 28% bom
-
-            items.push({
-                x: Math.random() * (canvas.width - 60),
-                y: -60,
-                size: 48,
-                isBomb: isBomb
-            });
-        }
-
-        function update() {
-            if (!isPlaying) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Bear
-            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
-
-            // Update & Draw Items
-            for (let i = items.length - 1; i >= 0; i--) {
-                let item = items[i];
-                item.y += speed;
-
-                if (item.isBomb) {
-                    ctx.drawImage(bombImg, item.x - 8, item.y - 8, item.size + 16, item.size + 16);
-                } else {
-                    ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
-                }
-
-                // Collision
-                if (item.y + 40 > bear.y && 
-                    item.x + 40 > bear.x && 
-                    item.x < bear.x + bear.width) {
-
-                    if (item.isBomb) {
-                        score = Math.max(0, score - 40);
-                    } else {
-                        score += 15;
-                        caughtCoins += 1;
-                        bear.currentImg = bear.imgEating;
-                        setTimeout(() => {
-                            if (isPlaying) bear.currentImg = bear.imgPending;
-                        }, 280);
-                    }
-                    items.splice(i, 1);
-                    continue;
-                }
-
-                // Item keluar layar
-                if (item.y > canvas.height + 50) {
-                    if (!item.isBomb) {
-                        gameOver();
-                        return;
-                    }
-                    items.splice(i, 1);
-                }
-            }
-
-            // Draw Score
-            ctx.fillStyle = "white";
-            ctx.font = "bold 28px Arial";
-            ctx.fillText("Score: " + score, 30, 65);
-
-            requestAnimationFrame(update);
-        }
-
-
-        // ====================== SAVE SCORE ======================
-        async function saveScore(finalScore, coinsCaught) {
-            if (!tonConnectUI || !tonConnectUI.connected) {
-                console.warn("❌ Wallet not connected, score not saved.");
-                return;
-            }
-
-            const address = tonConnectUI.account.address;
-            const tgUser = tg.initDataUnsafe?.user;
-            const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
-
-            console.log("💾 Saving score:", { wallet: address.slice(0,8) + "...", score: finalScore, coins: coinsCaught });
-
-            try {
-                const { data: current } = await sb
-                    .from('highscores')
-                    .select('best_score, total_coins, games_played')
-                    .eq('wallet_address', address)
-                    .maybeSingle();
-
-                const newBest = Math.max(current?.best_score || 0, finalScore);
-                const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
-                const newGames = (current?.games_played || 0) + 1;
-
-                const { error } = await sb
-                    .from('highscores')
-                    .upsert({
-                        wallet_address: address,
-                        username: username,
-                        best_score: newBest,
-                        total_coins: newTotalCoins,
-                        games_played: newGames,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'wallet_address' });
-
-                if (error) {
-                    console.error("❌ Upsert failed:", error);
-                } else {
-                    console.log("✅ Score successfully saved! New best score:", newBest);
-                }
-            } catch (err) {
-                console.error("❌ Error saving score:", err);
-            }
-        }
-
-        // ====================== Game Over ======================
-
-        function gameOver() {
-            isPlaying = false;
-            clearInterval(spawnTimer);
-            uiLayer.classList.remove("hidden");
-            titleEl.innerText = "GAME OVER!";
-            finalScoreEl.innerText = "Final Score: " + score;
-            finalScoreEl.classList.remove("hidden");
-            startBtn.innerText = "Play Again";
-
-            saveScore(score, caughtCoins);
-        }
-
-        // ====================== INPUT CONTROLS ======================
-        canvas.addEventListener("touchmove", (e) => {
-            if (!isPlaying) return;
-            bear.x = e.touches[0].clientX - (bear.width / 2);
-            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-            e.preventDefault();
-        }, { passive: false });
-
-        canvas.addEventListener("mousemove", (e) => {
-            if (!isPlaying) return;
-            bear.x = e.clientX - (bear.width / 2);
-            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+        items.push({
+            x: Math.random() * (canvas.width - 60),
+            y: -60,
+            size: 48,
+            isBomb: isBomb
         });
+    }
 
-        // ====================== UPDATE START BUTTON ======================
-        function updateStartButton() {
-            const isConnected = tonConnectUI && tonConnectUI.connected;
+    function update() {
+        if (!isPlaying) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (isConnected) {
-                // Tombol gambar tetap muncul, hanya ubah opacity
-                startBtn.style.opacity = "1";
+        // Draw Bear
+        ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
+
+        // Update & Draw Items
+        for (let i = items.length - 1; i >= 0; i--) {
+            let item = items[i];
+            item.y += speed;
+
+            if (item.isBomb) {
+                ctx.drawImage(bombImg, item.x - 8, item.y - 8, item.size + 16, item.size + 16);
             } else {
-                startBtn.style.opacity = "0.5";
+                ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
             }
-        }
 
-        // ====================== INIT ======================
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initTonConnect, 900);
-            updateStartButton();
+            // Collision
+            if (item.y + 40 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
+                if (item.isBomb) {
+                    score = Math.max(0, score - 40);
+                } else {
+                    score += 15;
+                    caughtCoins += 1;
+                    bear.currentImg = bear.imgEating;
+                    setTimeout(() => {
+                        if (isPlaying) bear.currentImg = bear.imgPending;
+                    }, 280);
+                }
+                items.splice(i, 1);
+                continue;
+            }
 
-            startBtn.addEventListener("click", () => {
-                if (!tonConnectUI || !tonConnectUI.connected) {
-                    alert("⚠️ Please connect your TON wallet first!");
+            // Miss (hanya koin yang bisa game over)
+            if (item.y > canvas.height + 50) {
+                if (!item.isBomb) {
+                    gameOver();
                     return;
                 }
-                startGame();
-            });
+                items.splice(i, 1);
+            }
+        }
+
+        // Draw Score
+        ctx.fillStyle = "white";
+        ctx.font = "bold 28px Arial";
+        ctx.fillText("Score: " + score, 30, 65);
+
+        requestAnimationFrame(update);
+    }
+
+    function gameOver() {
+        isPlaying = false;
+        clearInterval(spawnTimer);
+        uiLayer.classList.remove("hidden");
+        
+        titleEl.innerText = "GAME OVER!";
+        finalScoreEl.innerText = "Final Score: " + score;
+        finalScoreEl.classList.remove("hidden");
+
+        saveScore(score, caughtCoins);
+    }
+
+    // ====================== SAVE SCORE ======================
+    async function saveScore(finalScore, coinsCaught) {
+        if (!tonConnectUI || !tonConnectUI.connected) return;
+
+        const address = tonConnectUI.account.address;
+        const tgUser = tg.initDataUnsafe?.user;
+        const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
+
+        try {
+            const { data: current } = await sb
+                .from('highscores')
+                .select('best_score, total_coins, games_played')
+                .eq('wallet_address', address)
+                .maybeSingle();
+
+            const newBest = Math.max(current?.best_score || 0, finalScore);
+            const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
+            const newGames = (current?.games_played || 0) + 1;
+
+            await sb.from('highscores').upsert({
+                wallet_address: address,
+                username: username,
+                best_score: newBest,
+                total_coins: newTotalCoins,
+                games_played: newGames,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'wallet_address' });
+
+            console.log("✅ Score saved successfully!");
+        } catch (err) {
+            console.error("Error saving score:", err);
+        }
+    }
+
+    // ====================== INPUT ======================
+    canvas.addEventListener("touchmove", (e) => {
+        if (!isPlaying) return;
+        bear.x = e.touches[0].clientX - (bear.width / 2);
+        bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+        e.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener("mousemove", (e) => {
+        if (!isPlaying) return;
+        bear.x = e.clientX - (bear.width / 2);
+        bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+    });
+
+    function updateStartButton() {
+        const isConnected = tonConnectUI && tonConnectUI.connected;
+        startBtn.style.opacity = isConnected ? "1" : "0.5";
+    }
+
+    // ====================== INIT ======================
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initTonConnect, 800);
+        updateStartButton();
+
+        startBtn.addEventListener("click", () => {
+            if (!tonConnectUI || !tonConnectUI.connected) {
+                alert("⚠️ Please connect your TON wallet first!");
+                return;
+            }
+            startGame();
         });
-    </script>
+    });
+</script>
 </body>
 </html>
