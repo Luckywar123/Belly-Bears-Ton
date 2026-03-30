@@ -5,11 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Belly Bears - Telegram Game</title>
 
+    <!-- CSS -->
     <link rel="stylesheet" href="game.css">
     
+    <!-- SUPABASE CONFIG -->
     <script src="supabase-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- TON Connect Library -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 </head>
 
@@ -24,29 +30,31 @@
         
         <div id="ton-connect-button"></div>
         
-        <!-- Tombol Start -->
         <button id="startBtn" class="btn">🎮 Start Eating</button>
         
-        <!-- Tombol Dashboard jadi gambar full -->
-        <button onclick="window.location.href='dashboard.html'" 
-                style="background: transparent; border: none; padding: 0; margin-top: 12px; cursor: pointer;">
+        <!-- Tombol Dashboard diganti dengan gambar -->
+        <button class="btn" onclick="window.location.href='dashboard.html'" style="background: #f39c12; margin-top: 10px;">
             <img src="assets/Dashboard.png" 
-                 alt="My Dashboard" 
-                 style="width: 100%; max-width: 280px; height: auto; border-radius: 12px;">
+                 alt="Dashboard" 
+                 style="width: 24px; height: 24px; vertical-align: middle; margin-right: 8px;">
+            My Dashboard
         </button>
     </div>
 
+    <!-- ==================== MAIN SCRIPT ==================== -->
     <script>
+        // Telegram Web App setup
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
         tg.setHeaderColor("#1a1a1a");
 
-        const sb = supabase.createClient(
-            window.SUPABASE_CONFIG.URL, 
-            window.SUPABASE_CONFIG.ANON_KEY
-        );
+        // ====================== SUPABASE CLIENT ======================
+        const SUPABASE_URL = window.SUPABASE_CONFIG.URL;
+        const SUPABASE_ANON = window.SUPABASE_CONFIG.ANON_KEY;
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
+        // ====================== TON CONNECT ======================
         let tonConnectUI = null;
 
         async function initTonConnect() {
@@ -60,15 +68,21 @@
                 });
 
                 await tonConnectUI.connectionRestored;
-                tonConnectUI.onStatusChange(() => updateStartButton());
+                console.log("✅ TON Connect restored");
+
+                tonConnectUI.onStatusChange((wallet) => {
+                    console.log("Status changed:", wallet ? "Connected" : "Disconnected");
+                    updateStartButton();
+                });
+
                 updateStartButton();
 
             } catch (e) {
-                console.error("TON Connect init failed:", e);
+                console.error("❌ TON Connect init failed:", e);
             }
         }
 
-        // Game Variables
+        // ====================== GAME VARIABLES ======================
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const uiLayer = document.getElementById("ui-layer");
@@ -92,12 +106,18 @@
             height: 60 
         };
 
+        // ====================== SAVE SCORE ======================
         async function saveScore(finalScore, coinsCaught) {
-            if (!tonConnectUI || !tonConnectUI.connected) return;
+            if (!tonConnectUI || !tonConnectUI.connected) {
+                console.warn("❌ Wallet not connected, score not saved.");
+                return;
+            }
 
             const address = tonConnectUI.account.address;
             const tgUser = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
+
+            console.log("💾 Saving score:", { wallet: address.slice(0,8) + "...", score: finalScore, coins: coinsCaught });
 
             try {
                 const { data: current } = await sb
@@ -107,24 +127,31 @@
                     .maybeSingle();
 
                 const newBest = Math.max(current?.best_score || 0, finalScore);
-                const newTotal = (current?.total_coins || 0) + coinsCaught;
+                const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
                 const newGames = (current?.games_played || 0) + 1;
 
-                await sb.from('highscores').upsert({
-                    wallet_address: address,
-                    username: username,
-                    best_score: newBest,
-                    total_coins: newTotal,
-                    games_played: newGames,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'wallet_address' });
+                const { error } = await sb
+                    .from('highscores')
+                    .upsert({
+                        wallet_address: address,
+                        username: username,
+                        best_score: newBest,
+                        total_coins: newTotalCoins,
+                        games_played: newGames,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'wallet_address' });
 
-                console.log("✅ Score saved successfully!");
+                if (error) {
+                    console.error("❌ Upsert failed:", error);
+                } else {
+                    console.log("✅ Score successfully saved! New best score:", newBest);
+                }
             } catch (err) {
-                console.error("Error saving score:", err);
+                console.error("❌ Error saving score:", err);
             }
         }
 
+        // ====================== GAME LOGIC ======================
         function startGame() {
             isPlaying = true;
             score = 0;
@@ -139,22 +166,32 @@
 
         function spawnItem() {
             if (!isPlaying) return;
-            items.push({ x: Math.random() * (canvas.width - 40), y: -40, size: 40 });
+            items.push({ 
+                x: Math.random() * (canvas.width - 40), 
+                y: -40, 
+                size: 40 
+            });
         }
 
         function update() {
             if (!isPlaying) return;
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // Draw bear
             ctx.font = "50px Arial";
             ctx.fillText("🐻", bear.x, bear.y + 45);
 
+            // Update & draw coins
             for (let i = items.length - 1; i >= 0; i--) {
                 let item = items[i];
                 item.y += speed;
                 ctx.fillText("💰", item.x, item.y + 30);
 
-                if (item.y + 20 > bear.y && item.x + 30 > bear.x && item.x < bear.x + bear.width) {
+                // Collision
+                if (item.y + 20 > bear.y && 
+                    item.x + 30 > bear.x && 
+                    item.x < bear.x + bear.width) {
                     score += 10;
                     caughtCoins += 1;
                     items.splice(i, 1);
@@ -162,12 +199,14 @@
                     continue;
                 }
 
+                // Coin escaped → Game Over
                 if (item.y > canvas.height) {
                     gameOver();
                     return;
                 }
             }
 
+            // Real-time score
             ctx.fillStyle = "white";
             ctx.font = "bold 24px Arial";
             ctx.fillText("Score: " + score, 20, 50);
@@ -187,7 +226,7 @@
             saveScore(score, caughtCoins);
         }
 
-        // Controls
+        // ====================== INPUT CONTROLS ======================
         canvas.addEventListener("touchmove", (e) => {
             if (!isPlaying) return;
             bear.x = e.touches[0].clientX - (bear.width / 2);
@@ -201,8 +240,10 @@
             bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
         });
 
+        // ====================== UPDATE START BUTTON ======================
         function updateStartButton() {
             const isConnected = tonConnectUI && tonConnectUI.connected;
+
             if (isConnected) {
                 startBtn.disabled = false;
                 startBtn.innerText = "🎮 Start Eating";
@@ -216,7 +257,7 @@
             }
         }
 
-        // Init
+        // ====================== INIT ======================
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(initTonConnect, 900);
             updateStartButton();
