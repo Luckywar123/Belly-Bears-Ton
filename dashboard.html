@@ -1,44 +1,39 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta charset="UTF-8">
     <title>Dashboard - Belly Bears</title>
 
-    <!-- SUPABASE CONFIG -->
     <script src="supabase-config.js"></script>
-    <!-- Supabase Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- TON Connect Library -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-    <h1 style="color:#f39c12;">🏠 DASHBOARD BELLY BEARS</h1>
+    <h1 style="color:#f39c12;">🏠 BELLY BEARS DASHBOARD</h1>
 
     <div class="card">
         <h2>Wallet Status</h2>
         <div id="wallet-info" style="font-size: 1.1rem; font-weight: bold; text-align: center; padding: 12px; border-radius: 12px; background: #2c3e50; margin-bottom: 12px;">
-            ❌ Belum terkoneksi
+            ❌ Not Connected
         </div>
 
-        <!-- Tombol auto TON Connect -->
+        <!-- TON Connect Button -->
         <div id="ton-connect-button" style="margin: 12px 0;"></div>
 
-        <!-- Fallback hanya kalau gagal (sembunyikan kalau connected) -->
+        <!-- Fallback -->
         <div id="fallback-connect" style="display:none; margin: 12px 0; padding: 12px; background: #34495e; border-radius: 12px; text-align: center;">
             <p style="color: #ffcc00; margin-bottom: 12px; font-size: 0.95rem;">
-                ⚠️ Tombol connect otomatis gagal muncul. Coba manual:
+                ⚠️ Auto connect failed. Try manual connection:
             </p>
             <button id="manual-connect-btn" class="btn" style="background: #3498db; width: 100%; margin-bottom: 8px;">
-                🔗 Connect Wallet Manual
+                🔗 Connect Wallet Manually
             </button>
             <button id="retry-init-btn" class="btn" style="background: #f39c12; width: 100%;">
-                🔄 Coba Ulang TON Connect
+                🔄 Retry TON Connect
             </button>
         </div>
 
@@ -48,18 +43,19 @@
     </div>
 
     <div class="card">
-        <h2>Statistik Kamu</h2>
-        <p>Skor Tertinggi: <strong id="finalscore">0</strong></p>
-        <p>Total Koin Ditangkap: <strong id="total-coins">0</strong></p>
+        <h2>Your Statistics</h2>
+        <p>Highest Score: <strong id="finalscore">0</strong></p>
+        <p>Total Coins Caught: <strong id="total-coins">0</strong></p>
     </div>
 
     <button class="btn" onclick="window.location.href='index.html'">
-        🎮 Kembali ke Game
+        🎮 Back to Game
     </button>
 
     <div class="card">
-        <h2>🏆 Leaderboard Global</h2>
+        <h2>🏆 Global Leaderboard</h2>
         <div id="podium-container" class="podium-container"></div>
+        
         <div class="leaderboard-table">
             <div class="table-header">
                 <span>Rank</span>
@@ -68,204 +64,125 @@
             </div>
             <div id="table-body"></div>
         </div>
-        <button class="btn" onclick="refreshLeaderboard()">
+
+        <div id="extra-stats" style="margin: 20px 0; padding: 12px; background: #1f2a38; border-radius: 10px; font-size: 1rem;">
+            50th Highest Score: <strong id="score-50">-</strong><br>
+            100th Highest Score: <strong id="score-100">-</strong>
+        </div>
+
+        <button class="btn" onclick="refreshLeaderboard()" style="width: 100%;">
             🔄 Refresh Leaderboard
         </button>
     </div>
 
     <footer>
         <p style="color:#ffffff; font-size: 0.9rem; margin-top: 2rem;">
-            © 2026 Belly Bears. All rights reserved.
+            © 2026 Belly Bears. All rights reserved.<br>
+            Developed by <a href="https://github.com/xxxxxx" target="_blank">AurumOil</a>
         </p>
-        <div style="color:#ffffff; font-size: 0.9rem;">
-            <p>Developed by &emsp;<a href="https://github.com/xxxxxx" target="_blank">AurumOil</a></p>
-        </div>
     </footer>
 
-    <!-- SCRIPT UTAMA -->
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
         tg.setHeaderColor("#1a1a1a");
 
-        // SUPABASE CLIENT
-        const SUPABASE_URL = window.SUPABASE_CONFIG.URL;
-        const SUPABASE_ANON = window.SUPABASE_CONFIG.ANON_KEY;
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+        const sb = supabase.createClient(
+            window.SUPABASE_CONFIG.URL, 
+            window.SUPABASE_CONFIG.ANON_KEY
+        );
 
         let tonConnectUI = null;
-
 
         async function initTonConnect() {
             if (tonConnectUI) return;
 
             try {
-                console.log("🔄 Mulai init TON Connect...");
-
                 tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
                     manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
                     buttonRootId: 'ton-connect-button',
-                    uiPreferences: { theme: 'DARK', language: 'id' }
-                    // ← walletsListConfiguration DIHAPUS SEMENTARA (pakai default = semua wallet)
+                    uiPreferences: { theme: 'DARK', language: 'en' }
                 });
 
-                
-                // Tunggu restoration selesai
                 await tonConnectUI.connectionRestored;
-                console.log("✅ TON Connect restored");
-
-                // Pasang listener status change
-                tonConnectUI.onStatusChange((wallet) => {
-                    console.log("Status changed:", wallet ? "Connected" : "Disconnected");
-                    updateStartButton();
-                });
-
-                updateStartButton();
-                return tonConnectUI;
+                tonConnectUI.onStatusChange(() => refreshDashboard());
 
             } catch (e) {
-                console.error("❌ Init TON gagal:", e);
+                console.error("TON Connect error:", e);
                 document.getElementById('fallback-connect').style.display = 'block';
-                showFallback();
             }
         }
 
-        // Fungsi showFallback tetap pakai yang lama kamu
-        function showFallback() {
-            document.getElementById('fallback-connect').style.display = 'block';
-            document.getElementById('wallet-info').innerHTML = 
-                '❌ Koneksi wallet gagal otomatis<br><small>Coba tombol manual di bawah</small>';
-        }
-
-
-
-
-
-        // Fungsi fetch stats
-        async function fetchUserStats() {
-            if (!tonConnectUI || !tonConnectUI.connected) return;
-            const address = tonConnectUI.account.address;
-
-            try {
-                const { data } = await sb
-                    .from('highscores')
-                    .select('best_score, total_coins')
-                    .eq('wallet_address', address)
-                    .maybeSingle();
-
-                if (data) {
-                    document.getElementById('finalscore').textContent = data.best_score || 0;
-                    document.getElementById('total-coins').textContent = data.total_coins || 0;
-                }
-            } catch (err) {
-                console.error("Error fetch stats:", err);
-            }
-        }
-
-        // Fungsi refresh leaderboard
         async function refreshLeaderboard() {
-            console.log("refreshLeaderboard dipanggil");
             try {
-                const { data: leaderboard, error } = await sb
+                const { data: leaderboard } = await sb
                     .from('highscores')
                     .select('*')
                     .order('best_score', { ascending: false })
-                    .limit(20);
+                    .limit(100);
 
-                if (error) {
-                    console.error("Supabase error:", error);
-                    return;
-                }
+                if (!leaderboard || leaderboard.length === 0) return;
 
-                console.log("Data leaderboard:", leaderboard);
-
-                if (!leaderboard || leaderboard.length === 0) {
-                    console.log("Tidak ada data highscore sama sekali");
-                    return;
-                }
-
-                const podiumContainer = document.getElementById('podium-container');
-                podiumContainer.innerHTML = '';
+                // Podium Top 3
+                const podium = document.getElementById('podium-container');
+                podium.innerHTML = '';
 
                 const top3 = leaderboard.slice(0, 3);
-                const positions = ['second', 'first', 'third'];
-                const medals = ['🥈', '🥇', '🥉'];
+                const medals = ['🥇', '🥈', '🥉'];
+                const pos = ['first', 'second', 'third'];
 
-                top3.forEach((player, i) => {
+                top3.forEach((p, i) => {
                     const div = document.createElement('div');
-                    div.className = `podium-item ${positions[i]}`;
+                    div.className = `podium-item ${pos[i]}`;
                     div.innerHTML = `
-                        <div class="podium-rank">${i + 1}</div>
+                        <div class="podium-rank">${i+1}</div>
                         <div class="podium-avatar">🐻</div>
-                        <div class="podium-name">${player.username || player.wallet_address.slice(0, 8) + '...'}</div>
-                        <div class="podium-score">${player.best_score}</div>
-                        <div class="medal ${['silver','gold','bronze'][i]}">${medals[i]}</div>
+                        <div class="podium-name">${p.username || p.wallet_address.slice(0,8)+'...'}</div>
+                        <div class="podium-score">${p.best_score}</div>
+                        <div class="medal">${medals[i]}</div>
                     `;
-                    podiumContainer.appendChild(div);
+                    podium.appendChild(div);
                 });
 
-                const tableBody = document.getElementById('table-body');
-                tableBody.innerHTML = '';
+                // Top 20 Table
+                const tbody = document.getElementById('table-body');
+                tbody.innerHTML = '';
 
-                leaderboard.forEach((player, i) => {
+                leaderboard.slice(0, 20).forEach((p, i) => {
                     const row = document.createElement('div');
                     row.className = 'table-row';
                     row.innerHTML = `
-                        <span class="rank">${i + 1}</span>
-                        <span class="player">${player.username || player.wallet_address.slice(0, 8) + '...'}</span>
-                        <span class="score">${player.best_score}</span>
+                        <span class="rank">${i+1}</span>
+                        <span class="player">${p.username || p.wallet_address.slice(0,8)+'...'}</span>
+                        <span class="score">${p.best_score}</span>
                     `;
-                    tableBody.appendChild(row);
+                    tbody.appendChild(row);
                 });
+
+                // Extra Stats
+                document.getElementById('score-50').textContent = leaderboard[49] ? leaderboard[49].best_score : '-';
+                document.getElementById('score-100').textContent = leaderboard[99] ? leaderboard[99].best_score : '-';
+
             } catch (err) {
-                console.error("Leaderboard fetch error:", err);
+                console.error("Leaderboard error:", err);
             }
         }
 
-        // Refresh dashboard
         async function refreshDashboard() {
             const walletInfo = document.getElementById('wallet-info');
-
             if (tonConnectUI && tonConnectUI.connected) {
-                walletInfo.innerHTML = `
-                    ✅ Terkoneksi<br>
-                    <strong>${tonConnectUI.account.address.slice(0,8)}...${tonConnectUI.account.address.slice(-6)}</strong>
-                `;
-                document.getElementById('fallback-connect').style.display = 'none'; // Hilang total!
+                walletInfo.innerHTML = `✅ Connected<br><strong>${tonConnectUI.account.address.slice(0,8)}...${tonConnectUI.account.address.slice(-6)}</strong>`;
             } else {
-                walletInfo.innerHTML = '❌ Belum terkoneksi';
+                walletInfo.innerHTML = '❌ Not Connected';
             }
-
-            await fetchUserStats();
             await refreshLeaderboard();
         }
 
-        // INIT
+        // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Coba init pertama
-            setTimeout(initTonConnect, 900); // delay kecil biar library sempat load
-
-            // Fallback manual connect
-            document.getElementById('manual-connect-btn')?.addEventListener('click', () => {
-                if (tonConnectUI) {
-                    tonConnectUI.connectWallet();
-                } else {
-                    alert("TON Connect belum siap. Coba refresh halaman atau cek koneksi.");
-                }
-            });
-
-            // Tombol retry init
-            document.getElementById('retry-init-btn')?.addEventListener('click', () => {
-                initAttempted = false;
-                initTonConnect();
-            });
-
-            // Load data awal
+            setTimeout(initTonConnect, 800);
             refreshDashboard();
-            setTimeout(() => {
-                if (tonConnectUI && tonConnectUI.connected) refreshDashboard();
-            }, 1500);
         });
     </script>
 </body>
