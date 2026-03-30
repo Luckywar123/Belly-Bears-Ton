@@ -55,204 +55,204 @@
    
 
     <!-- ==================== MAIN SCRIPT ==================== -->
-<script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    tg.setHeaderColor("#1a1a1a");
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor("#1a1a1a");
 
-    const sb = supabase.createClient(window.SUPABASE_CONFIG.URL, window.SUPABASE_CONFIG.ANON_KEY);
+        const sb = supabase.createClient(window.SUPABASE_CONFIG.URL, window.SUPABASE_CONFIG.ANON_KEY);
 
-    let tonConnectUI = null;
+        let tonConnectUI = null;
 
-    // ==================== GAME SETUP ====================
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const uiLayer = document.getElementById("ui-layer");
-    const startBtn = document.getElementById("startBtn");
-    const finalScoreEl = document.getElementById("finalScore");
-    const titleEl = document.getElementById("title");
+        // ==================== GAME SETUP ====================
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const uiLayer = document.getElementById("ui-layer");
+        const startBtn = document.getElementById("startBtn");
+        const finalScoreEl = document.getElementById("finalScore");
+        const titleEl = document.getElementById("title");
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-    let isPlaying = false;
-    let score = 0;
-    let caughtCoins = 0;
-    let items = [];
-    let speed = 3.5;
-    let spawnTimer;
+        let isPlaying = false;
+        let score = 0;
+        let caughtCoins = 0;
+        let items = [];
+        let speed = 3.5;
+        let spawnTimer;
 
-    // Bear
-    const bear = {
-        x: canvas.width / 2 - 45,
-        y: canvas.height - 150,
-        width: 90,
-        height: 90,
-        imgPending: new Image(),
-        imgEating: new Image(),
-        currentImg: null
-    };
+        // Bear
+        const bear = {
+            x: canvas.width / 2 - 45,
+            y: canvas.height - 150,
+            width: 90,
+            height: 90,
+            imgPending: new Image(),
+            imgEating: new Image(),
+            currentImg: null
+        };
 
-    bear.imgPending.src = "assets/Beruang-pending.png";
-    bear.imgEating.src = "assets/Beruang-makan.png";
-    bear.currentImg = bear.imgPending;
-
-    // Items
-    const coinImg = new Image(); coinImg.src = "assets/coin.png";
-    const bombImg = new Image(); bombImg.src = "assets/bom.png";
-
-    // ====================== TON CONNECT ======================
-    async function initTonConnect() {
-        if (tonConnectUI) return;
-        try {
-            tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-                manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
-                buttonRootId: 'ton-connect-button',
-                uiPreferences: { theme: 'DARK', language: 'en' }
-            });
-            await tonConnectUI.connectionRestored;
-            tonConnectUI.onStatusChange(() => updateStartButton());
-        } catch (e) {
-            console.error("TON Connect failed:", e);
-        }
-    }
-
-    // ====================== START GAME WITH LOADING ======================
-    startBtn.addEventListener("click", async () => {
-        if (!tonConnectUI || !tonConnectUI.connected) {
-            alert("⚠️ Please connect your TON wallet first!");
-            return;
-        }
-
-        const loadingScreen = document.getElementById('loading-screen');
-        loadingScreen.style.display = 'flex';
-
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-            progress += Math.random() * 30;
-            if (progress > 100) progress = 100;
-            document.getElementById('loading-bar').style.width = progress + '%';
-        }, 80);
-
-        // Tunggu loading selesai lalu mulai game
-        setTimeout(() => {
-            clearInterval(progressInterval);
-            document.getElementById('loading-bar').style.width = '100%';
-            document.getElementById('loading-text').textContent = 'Starting game...';
-
-            setTimeout(() => {
-                loadingScreen.style.display = 'none';
-                startActualGame();   // ← Panggil game sesungguhnya
-            }, 500);
-        }, 1400);
-    });
-
-    // Fungsi game sesungguhnya (dipisah supaya bersih)
-    function startActualGame() {
-        isPlaying = true;
-        score = 0;
-        caughtCoins = 0;
-        speed = 3.5;
-        items = [];
-        uiLayer.classList.add("hidden");
+        bear.imgPending.src = "assets/Beruang-pending.png";
+        bear.imgEating.src = "assets/Beruang-makan.png";
         bear.currentImg = bear.imgPending;
 
-        if (spawnTimer) clearInterval(spawnTimer);
-        spawnTimer = setInterval(spawnItem, 850);
-        update();
-    }
+        // Items
+        const coinImg = new Image(); coinImg.src = "assets/coin.png";
+        const bombImg = new Image(); bombImg.src = "assets/bom.png";
 
-    function spawnItem() {
-        if (!isPlaying) return;
-        const isBomb = Math.random() < 0.28;
-
-        items.push({
-            x: Math.random() * (canvas.width - 60),
-            y: -60,
-            size: 48,
-            isBomb: isBomb
-        });
-    }
-
-    function update() {
-        if (!isPlaying) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
-
-        for (let i = items.length - 1; i >= 0; i--) {
-            let item = items[i];
-            item.y += speed;
-
-            if (item.isBomb) {
-                ctx.drawImage(bombImg, item.x - 8, item.y - 8, item.size + 16, item.size + 16);
-            } else {
-                ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
-            }
-
-            if (item.y + 40 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
-                if (item.isBomb) {
-                    score = Math.max(0, score - 40);
-                } else {
-                    score += 15;
-                    caughtCoins += 1;
-                    bear.currentImg = bear.imgEating;
-                    setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 280);
-                }
-                items.splice(i, 1);
-                continue;
-            }
-
-            if (item.y > canvas.height + 50) {
-                if (!item.isBomb) {
-                    gameOver();
-                    return;
-                }
-                items.splice(i, 1);
+        // ====================== TON CONNECT ======================
+        async function initTonConnect() {
+            if (tonConnectUI) return;
+            try {
+                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                    manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect-button',
+                    uiPreferences: { theme: 'DARK', language: 'en' }
+                });
+                await tonConnectUI.connectionRestored;
+                tonConnectUI.onStatusChange(() => updateStartButton());
+            } catch (e) {
+                console.error("TON Connect failed:", e);
             }
         }
 
-        ctx.fillStyle = "white";
-        ctx.font = "bold 28px Arial";
-        ctx.fillText("Score: " + score, 30, 65);
+        // ====================== START GAME WITH LOADING ======================
+        startBtn.addEventListener("click", async () => {
+            if (!tonConnectUI || !tonConnectUI.connected) {
+                alert("⚠️ Please connect your TON wallet first!");
+                return;
+            }
 
-        requestAnimationFrame(update);
-    }
+            const loadingScreen = document.getElementById('loading-screen');
+            loadingScreen.style.display = 'flex';
 
-    function gameOver() {
-        isPlaying = false;
-        clearInterval(spawnTimer);
-        uiLayer.classList.remove("hidden");
-        titleEl.innerText = "GAME OVER!";
-        finalScoreEl.innerText = "Final Score: " + score;
-        finalScoreEl.classList.remove("hidden");
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 30;
+                if (progress > 100) progress = 100;
+                document.getElementById('loading-bar').style.width = progress + '%';
+            }, 80);
 
-        saveScore(score, caughtCoins);
-    }
+            // Tunggu loading selesai lalu mulai game
+            setTimeout(() => {
+                clearInterval(progressInterval);
+                document.getElementById('loading-bar').style.width = '100%';
+                document.getElementById('loading-text').textContent = 'Starting game...';
 
-    async function saveScore(finalScore, coinsCaught) {
-        if (!tonConnectUI || !tonConnectUI.connected) return;
-        // ... saveScore logic kamu tetap sama
-    }
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                    startActualGame();   // ← Panggil game sesungguhnya
+                }, 500);
+            }, 1400);
+        });
 
-    // Input controls
-    canvas.addEventListener("touchmove", (e) => {
-        if (!isPlaying) return;
-        bear.x = e.touches[0].clientX - (bear.width / 2);
-        bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-        e.preventDefault();
-    }, { passive: false });
+        // Fungsi game sesungguhnya (dipisah supaya bersih)
+        function startActualGame() {
+            isPlaying = true;
+            score = 0;
+            caughtCoins = 0;
+            speed = 3.5;
+            items = [];
+            uiLayer.classList.add("hidden");
+            bear.currentImg = bear.imgPending;
 
-    function updateStartButton() {
-        const isConnected = tonConnectUI && tonConnectUI.connected;
-        startBtn.style.opacity = isConnected ? "1" : "0.5";
-    }
+            if (spawnTimer) clearInterval(spawnTimer);
+            spawnTimer = setInterval(spawnItem, 850);
+            update();
+        }
 
-    // INIT
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(initTonConnect, 800);
-    });
-</script>
+        function spawnItem() {
+            if (!isPlaying) return;
+            const isBomb = Math.random() < 0.28;
+
+            items.push({
+                x: Math.random() * (canvas.width - 60),
+                y: -60,
+                size: 48,
+                isBomb: isBomb
+            });
+        }
+
+        function update() {
+            if (!isPlaying) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
+
+            for (let i = items.length - 1; i >= 0; i--) {
+                let item = items[i];
+                item.y += speed;
+
+                if (item.isBomb) {
+                    ctx.drawImage(bombImg, item.x - 8, item.y - 8, item.size + 16, item.size + 16);
+                } else {
+                    ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+                }
+
+                if (item.y + 40 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
+                    if (item.isBomb) {
+                        score = Math.max(0, score - 40);
+                    } else {
+                        score += 15;
+                        caughtCoins += 1;
+                        bear.currentImg = bear.imgEating;
+                        setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 280);
+                    }
+                    items.splice(i, 1);
+                    continue;
+                }
+
+                if (item.y > canvas.height + 50) {
+                    if (!item.isBomb) {
+                        gameOver();
+                        return;
+                    }
+                    items.splice(i, 1);
+                }
+            }
+
+            ctx.fillStyle = "white";
+            ctx.font = "bold 28px Arial";
+            ctx.fillText("Score: " + score, 30, 65);
+
+            requestAnimationFrame(update);
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            clearInterval(spawnTimer);
+            uiLayer.classList.remove("hidden");
+            titleEl.innerText = "GAME OVER!";
+            finalScoreEl.innerText = "Final Score: " + score;
+            finalScoreEl.classList.remove("hidden");
+
+            saveScore(score, caughtCoins);
+        }
+
+        async function saveScore(finalScore, coinsCaught) {
+            if (!tonConnectUI || !tonConnectUI.connected) return;
+            // ... saveScore logic kamu tetap sama
+        }
+
+        // Input controls
+        canvas.addEventListener("touchmove", (e) => {
+            if (!isPlaying) return;
+            bear.x = e.touches[0].clientX - (bear.width / 2);
+            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            e.preventDefault();
+        }, { passive: false });
+
+        function updateStartButton() {
+            const isConnected = tonConnectUI && tonConnectUI.connected;
+            startBtn.style.opacity = isConnected ? "1" : "0.5";
+        }
+
+        // INIT
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initTonConnect, 800);
+        });
+    </script>
 </body>
 </html>
