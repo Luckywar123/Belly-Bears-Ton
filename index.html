@@ -90,11 +90,8 @@
         bear.currentImg = bear.imgPending;
 
         // Items
-        const coinImg = new Image(); 
-        coinImg.src = "assets/coin.png";
-
-        const bombImg = new Image(); 
-        bombImg.src = "assets/bom.png";
+        const coinImg = new Image(); coinImg.src = "assets/coin.png";
+        const bombImg = new Image(); bombImg.src = "assets/bom.png";
 
         // ====================== TON CONNECT ======================
         async function initTonConnect() {
@@ -152,6 +149,31 @@
             if (spawnTimer) clearInterval(spawnTimer);
             spawnTimer = setInterval(spawnItem, 850);
             update();
+
+            // Pastikan event listener aktif saat game mulai
+            addGameControls();
+        }
+
+        function addGameControls() {
+            // Remove old listeners to avoid duplicates
+            canvas.removeEventListener("touchmove", handleTouchMove);
+            canvas.removeEventListener("mousemove", handleMouseMove);
+
+            canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+            canvas.addEventListener("mousemove", handleMouseMove);
+        }
+
+        function handleTouchMove(e) {
+            if (!isPlaying) return;
+            bear.x = e.touches[0].clientX - (bear.width / 2);
+            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            e.preventDefault();
+        }
+
+        function handleMouseMove(e) {
+            if (!isPlaying) return;
+            bear.x = e.clientX - (bear.width / 2);
+            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
         }
 
         function spawnItem() {
@@ -251,14 +273,6 @@
                 console.error("Error saving score:", err);
             }
         }
-
-        // Input
-        canvas.addEventListener("touchmove", (e) => {
-            if (!isPlaying) return;
-            bear.x = e.touches[0].clientX - (bear.width / 2);
-            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-            e.preventDefault();
-        }, { passive: false });
 
         // INIT
         document.addEventListener('DOMContentLoaded', () => {
