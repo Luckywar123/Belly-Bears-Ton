@@ -110,15 +110,19 @@
                     // ← walletsListConfiguration DIHAPUS SEMENTARA (pakai default = semua wallet)
                 });
 
-                const restored = await tonConnectUI.connectionRestored;
-                console.log("✅ Connection restored:", restored);
+                
+                // Tunggu restoration selesai
+                await tonConnectUI.connectionRestored;
+                console.log("✅ TON Connect restored");
 
-                tonConnectUI.onStatusChange(() => refreshDashboard());
+                // Pasang listener status change
+                tonConnectUI.onStatusChange((wallet) => {
+                    console.log("Status changed:", wallet ? "Connected" : "Disconnected");
+                    updateStartButton();
+                });
 
-                // Sembunyikan fallback
-                document.getElementById('fallback-connect').style.display = 'none';
-
-                console.log("🎉 TON Connect SIAP! Tombol harus muncul sekarang.");
+                updateStartButton();
+                return tonConnectUI;
 
             } catch (e) {
                 console.error("❌ Init TON gagal:", e);
@@ -148,7 +152,7 @@
                     .from('highscores')
                     .select('best_score, total_coins')
                     .eq('wallet_address', address)
-                    .single();
+                    .maybeSingle();
 
                 if (data) {
                     document.getElementById('finalscore').textContent = data.best_score || 0;

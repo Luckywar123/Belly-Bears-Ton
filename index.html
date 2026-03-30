@@ -64,16 +64,20 @@
                     manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
                     buttonRootId: 'ton-connect-button',
                     uiPreferences: { theme: 'DARK', language: 'id' },
-
-                    walletsListConfiguration: {  // ← sama seperti di dashboard
-                        includeWallets: [ /* isi sama persis dengan yang di atas */ ]
-                    }
                 });
 
-                const restored = await tonConnectUI.connectionRestored;
-                console.log("✅ Connection restored:", restored);
+                // Tunggu restoration selesai
+                await tonConnectUI.connectionRestored;
+                console.log("✅ TON Connect restored");
 
-                tonConnectUI.onStatusChange(() => updateStartButton());
+                // Pasang listener status change
+                tonConnectUI.onStatusChange((wallet) => {
+                    console.log("Status changed:", wallet ? "Connected" : "Disconnected");
+                    updateStartButton();
+                });
+
+                updateStartButton();
+                return tonConnectUI;
 
             } catch (e) {
                 console.error("❌ Init TON gagal:", e);
@@ -106,7 +110,7 @@
         // ====================== SAVE SCORE KE DATABASE ======================
         async function saveScore(finalScore, coinsCaught) {
             if (!tonConnectUI || !tonConnectUI.connected) {
-                console.log("Wallet belum terkoneksi, skor tidak disimpan.");
+                console.log("❌ Wallet belum terkoneksi");
                 return;
             }
 
@@ -119,7 +123,7 @@
                     .from('highscores')
                     .select('best_score, total_coins, games_played')
                     .eq('wallet_address', address)
-                    .single();
+                    .maybeSingle();   // ← pakai maybeSingle biar tidak error kalau belum ada data
 
                 const newBest = Math.max(current?.best_score || 0, finalScore);
                 const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
@@ -134,15 +138,13 @@
                         total_coins: newTotalCoins,
                         games_played: newGames,
                         updated_at: new Date().toISOString()
-                    }, { onConflict: 'wallet_address' });
+                    });
 
-                if (error) {
-                    console.error("Gagal simpan skor:", error);
-                } else {
-                    console.log("✅ Highscore tersimpan ke Supabase!");
-                }
+                if (error) console.error("Gagal upsert:", error);
+                else console.log("✅ Skor berhasil disimpan ke Supabase!");
+
             } catch (err) {
-                console.error("Error saat save score:", err);
+                console.error("Error saveScore:", err);
             }
         }
 
