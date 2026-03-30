@@ -23,21 +23,24 @@
 
     <canvas id="gameCanvas"></canvas>
 
-    <div id="ui-layer">
+        <div id="ui-layer">
         <h1 id="title" style="color:#f39c12;">BELLY BEARS</h1>
         <p id="desc">Catch the coins, don't let them escape!</p>
         <h2 id="finalScore" class="hidden">Final Score: 0</h2>
         
         <div id="ton-connect-button"></div>
         
-        <button id="startBtn" class="btn">🎮 Start Eating</button>
+        <!-- Tombol Start Eating -->
+        <button id="startBtn" class="btn" style="margin-bottom: 15px;">
+            🎮 Start Eating
+        </button>
         
-        <!-- Tombol Dashboard diganti dengan gambar -->
+        <!-- Tombol Dashboard sebagai gambar (wood texture) -->
         <button onclick="window.location.href='dashboard.html'" 
-                style="background: none; border: none; padding: 0; cursor: pointer; width: 100%; max-width: 280px;">
+                style="background: none; border: none; padding: 0; margin: 0 auto; display: block; cursor: pointer; max-width: 280px;">
             <img src="assets/Dashboard.png" 
-                 alt="My Dashboard" 
-                 style="width: 100%; height: auto; border-radius: 12px;">
+                 alt="Dashboard" 
+                 style="width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
         </button>
     </div>
 
