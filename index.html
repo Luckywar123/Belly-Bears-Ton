@@ -264,57 +264,43 @@
 
         function update() {
             if (!isPlaying) return;
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // === DRAW BACKGROUND ===
-            if (backgroundImg.complete) {
-                ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
-            } else {
-                // Fallback warna kalau background belum load
-                ctx.fillStyle = "#0f2a1f";   // Warna hijau gelap tema beruang
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-
-                // Update & Draw Falling Leaves
-                    for (let i = 0; i < leaves.length; i++) {
-                        leaves[i].update();
-                        leaves[i].draw();
-                    }
-
-
-
-
-            // === AUTO SCALE BACKGROUND (COVER STYLE) ===
+            // ==================== BACKGROUND AUTO SCALE ====================
             if (backgroundImg.complete) {
                 const imgW = backgroundImg.width;
                 const imgH = backgroundImg.height;
                 const canvasW = canvas.width;
                 const canvasH = canvas.height;
 
-                // Hitung scale agar memenuhi layar tanpa distort
-                const scale = Math.max(canvasW / imgW, canvasH / imgH);
+                const scale = Math.max(canvasW / imgW, canvasH / imgH);   // Cover style
 
                 const newW = imgW * scale;
                 const newH = imgH * scale;
 
-                // Centerkan gambar
                 const offsetX = (canvasW - newW) / 2;
                 const offsetY = (canvasH - newH) / 2;
 
                 ctx.drawImage(backgroundImg, 
-                    offsetX, offsetY + bgOffsetY,   // posisi
-                    newW, newH);                    // ukuran baru
+                    offsetX, offsetY + bgOffsetY, 
+                    newW, newH);
             } else {
-                // Fallback warna hutan kalau belum load
+                // Fallback warna hutan
                 ctx.fillStyle = "#1a2f1f";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
+            // ==================== FALLING LEAVES ====================
+            for (let i = 0; i < leaves.length; i++) {
+                leaves[i].update();
+                leaves[i].draw();
+            }
 
-
-
+            // ==================== BEAR ====================
             ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
 
+            // ==================== ITEMS (COIN & BOMB) ====================
             for (let i = items.length - 1; i >= 0; i--) {
                 let item = items[i];
                 item.y += speed;
@@ -325,6 +311,7 @@
                     ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
                 }
 
+                // Collision dengan bear
                 if (item.y + 40 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
                     if (item.isBomb) {
                         score = Math.max(0, score - 40);
@@ -332,12 +319,15 @@
                         score += 15;
                         caughtCoins += 1;
                         bear.currentImg = bear.imgEating;
-                        setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 280);
+                        setTimeout(() => { 
+                            if (isPlaying) bear.currentImg = bear.imgPending; 
+                        }, 280);
                     }
                     items.splice(i, 1);
                     continue;
                 }
 
+                // Item keluar layar bawah
                 if (item.y > canvas.height + 50) {
                     if (!item.isBomb) {
                         gameOver();
@@ -347,6 +337,7 @@
                 }
             }
 
+            // ==================== SCORE TEXT ====================
             ctx.fillStyle = "white";
             ctx.font = "bold 28px Arial";
             ctx.fillText("Score: " + score, 30, 65);
