@@ -11,6 +11,43 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <link rel="stylesheet" href="styles.css">
+
+    <style>
+        /* BACKGROUND DASHBOARD */
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: url('assets/background-dashboard.png') no-repeat center center fixed;
+            background-size: cover;
+            position: relative;
+        }
+
+        /* Overlay gelap agar teks tetap jelas */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.65); /* sesuaikan opacity kalau terlalu gelap/terang */
+            z-index: -1;
+        }
+
+        /* Pastikan semua konten di atas background */
+        .card, button, footer {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Optional: sedikit transparansi pada card biar background kelihatan */
+        .card {
+            background: rgba(30, 40, 55, 0.92) !important; /* lebih transparan sedikit */
+            backdrop-filter: blur(8px);
+        }
+    </style>
+    
 </head>
 <body>
     <div style="text-align: center; margin: 20px 0 30px 0;">
