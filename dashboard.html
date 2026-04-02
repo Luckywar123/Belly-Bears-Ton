@@ -182,11 +182,21 @@
 
         async function refreshDashboard() {
             const walletInfo = document.getElementById('wallet-info');
+
             if (tonConnectUI && tonConnectUI.connected) {
-                walletInfo.innerHTML = `✅ Connected<br><strong>${tonConnectUI.account.address.slice(0,8)}...${tonConnectUI.account.address.slice(-6)}</strong>`;
+                const walletAddress = tonConnectUI.account.address;
+                
+                walletInfo.innerHTML = `✅ Connected<br><strong>${walletAddress.slice(0,8)}...${walletAddress.slice(-6)}</strong>`;
+                
+                // <-- INI YANG BARU
+                await fetchUserStats(walletAddress);
+                
             } else {
                 walletInfo.innerHTML = '❌ Not Connected';
+                document.getElementById('finalscore').textContent = '0';
+                document.getElementById('total-coins').textContent = '0';
             }
+
             await refreshLeaderboard();
         }
 
