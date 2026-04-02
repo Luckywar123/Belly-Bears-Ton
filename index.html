@@ -15,7 +15,7 @@
 
 <body>
 
-    <!-- ====================== LOADING SCREEN ====================== -->
+    <!-- LOADING SCREEN -->
     <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100;">
         <img src="assets/ICON.png" alt="Belly Bears" style="width: 130px; height: 130px; margin-bottom: 25px;">
         <h2 style="color: #f39c12; margin: 0 0 20px 0; font-size: 1.8rem;">Loading Assets...</h2>
@@ -25,7 +25,7 @@
         <p id="loading-text" style="color: #aaa; margin-top: 12px; font-size: 1rem;">Preparing game...</p>
     </div>
 
-    <!-- ====================== COUNTDOWN 3-2-1 ====================== -->
+    <!-- COUNTDOWN 3-2-1 -->
     <div id="countdown-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); display: none; justify-content: center; align-items: center; z-index: 200; font-size: 140px; color: #f39c12; font-weight: bold; text-shadow: 0 0 30px #f39c12;">
     </div>
 
@@ -51,7 +51,6 @@
     </div>
 
     <script>
-        // ====================== SETUP ======================
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
@@ -103,13 +102,11 @@
         const backgroundImg = new Image();
         backgroundImg.src = "assets/Background-game.png";
 
-        // Falling Leaves Particles
+        // Falling Leaves
         let leaves = [];
 
         class Leaf {
-            constructor() {
-                this.reset();
-            }
+            constructor() { this.reset(); }
             reset() {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * -canvas.height;
@@ -140,9 +137,7 @@
 
         function initLeaves(count = 45) {
             leaves = [];
-            for (let i = 0; i < count; i++) {
-                leaves.push(new Leaf());
-            }
+            for (let i = 0; i < count; i++) leaves.push(new Leaf());
         }
 
         // ====================== TON CONNECT ======================
@@ -160,7 +155,7 @@
             }
         }
 
-        // ====================== START GAME WITH LOADING ======================
+        // ====================== START GAME ======================
         startBtn.addEventListener("click", async () => {
             if (!tonConnectUI || !tonConnectUI.connected) {
                 alert("⚠️ Please connect your TON wallet first!");
@@ -248,7 +243,7 @@
 
             // Background
             if (backgroundImg.complete) {
-                const scale = Math.max(canvas.width / backgroundImg.width, canvas.height / backgroundImg.height);
+                const scale = Math.max(canvas.width / backgroundImg.width, canvas.height / backgroundImg.height * 0.92);
                 const newW = backgroundImg.width * scale;
                 const newH = backgroundImg.height * scale;
                 const offsetX = (canvas.width - newW) / 2;
@@ -268,7 +263,7 @@
             // Bear
             ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
 
-            // Items (Coin & Bomb)
+            // Items
             for (let i = items.length - 1; i >= 0; i--) {
                 let item = items[i];
                 item.y += speed;
@@ -301,7 +296,6 @@
                 }
             }
 
-            // Score
             ctx.fillStyle = "white";
             ctx.font = "bold 28px Arial";
             ctx.fillText("Score: " + score, 30, 65);
@@ -322,6 +316,7 @@
 
         async function saveScore(finalScore, coinsCaught) {
             if (!tonConnectUI || !tonConnectUI.connected) return;
+
             const address = tonConnectUI.account.address;
             const tgUser = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
@@ -337,7 +332,7 @@
                 const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
                 const newGames = (current?.games_played || 0) + 1;
 
-                await sb.from('highscores').upsert({
+                const { error } = await sb.from('highscores').upsert({
                     wallet_address: address,
                     username: username,
                     best_score: newBest,
@@ -345,12 +340,42 @@
                     games_played: newGames,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'wallet_address' });
+
+                if (error) console.error("Upsert error:", error);
+                else console.log("✅ Score berhasil disimpan ke database!");
+
             } catch (err) {
                 console.error("Error saving score:", err);
             }
         }
 
-        // ====================== INIT ======================
+        function addGameControls() {
+            canvas.addEventListener("touchmove", (e) => {
+                if (!isPlaying) return;
+                bear.x = e.touches[0].clientX - (bear.width / 2);
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+                e.preventDefault();
+            }, { passive: false });
+
+            canvas.addEventListener("mousemove", (e) => {
+                if (!isPlaying) return;
+                bear.x = e.clientX - (bear.width / 2);
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            });
+        }
+
+        function spawnItem() {
+            if (!isPlaying) return;
+            const isBomb = Math.random() < 0.28;
+            items.push({
+                x: Math.random() * (canvas.width - 60),
+                y: -60,
+                size: 48,
+                isBomb: isBomb
+            });
+        }
+
+        // INIT
         document.addEventListener('DOMContentLoaded', () => {
             initTonConnect();
         });
