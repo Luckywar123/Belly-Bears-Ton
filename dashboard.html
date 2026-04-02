@@ -185,7 +185,7 @@
             try {
                 const { data, error } = await sb
                     .from('highscores')
-                    .select('best_score, total_coins')
+                    .select('best_score, total_coins, games_played')
                     .eq('wallet_address', walletAddress)
                     .maybeSingle();   // <-- ini yang penting (null kalau belum ada row)
 
