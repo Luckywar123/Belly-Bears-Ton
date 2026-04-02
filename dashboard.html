@@ -180,6 +180,35 @@
             }
         }
 
+        async function fetchUserStats(walletAddress) {
+            try {
+                const { data, error } = await sb
+                    .from('highscores')
+                    .select('best_score, total_coins')
+                    .eq('wallet_address', walletAddress)
+                    .maybeSingle();   // <-- ini yang penting (null kalau belum ada row)
+
+                if (error) {
+                    console.error("User stats error:", error);
+                    return;
+                }
+
+                const scoreEl = document.getElementById('finalscore');
+                const coinsEl = document.getElementById('total-coins');
+
+                if (data) {
+                    scoreEl.textContent = data.best_score || 0;
+                    coinsEl.textContent = data.total_coins || 0;
+                } else {
+                    // user baru / belum ada record
+                    scoreEl.textContent = '0';
+                    coinsEl.textContent = '0';
+                }
+            } catch (err) {
+                console.error("Fetch user stats error:", err);
+            }
+        }
+
         async function refreshDashboard() {
             const walletInfo = document.getElementById('wallet-info');
 
