@@ -12,43 +12,40 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 
-
     <style>
-        /* BACKGROUND DASHBOARD */
         body {
             margin: 0;
             padding: 0;
-            min-height: 100vh;
-            background: url('assets/background-dashboard.png') no-repeat center center fixed;
-            background-size: cover;
-            position: relative;
+            overflow: hidden;
+            background: #0a1f0a; /* warna gelap hijau sebagai fallback */
         }
 
-        /* Overlay gelap agar teks tetap jelas */
-        body::before {
-            content: '';
-            position: fixed;
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #ui-layer {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.65); /* sesuaikan opacity kalau terlalu gelap/terang */
-            z-index: -1;
+            z-index: 10;
+            pointer-events: none;
         }
 
-        /* Pastikan semua konten di atas background */
-        .card, button, footer {
-            position: relative;
-            z-index: 2;
+        #ui-layer > * {
+            pointer-events: auto;
         }
 
-        /* Optional: sedikit transparansi pada card biar background kelihatan */
-        .card {
-            background: rgba(30, 40, 55, 0.92) !important; /* lebih transparan sedikit */
-            backdrop-filter: blur(8px);
+        /* Tombol supaya lebih jelas di atas background game */
+        button {
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
         }
     </style>
-    
 </head>
 
 <body>
@@ -107,8 +104,13 @@
         const loadingScreen = document.getElementById("loading-screen");
         const countdownScreen = document.getElementById("countdown-screen");
 
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        // Resize canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
         let isPlaying = false;
         let score = 0;
@@ -127,7 +129,6 @@
             imgEating: new Image(),
             currentImg: null
         };
-
         bear.imgPending.src = "assets/Beruang-pending.png";
         bear.imgEating.src = "assets/Beruang-makan.png";
         bear.currentImg = bear.imgPending;
@@ -136,7 +137,7 @@
         const coinImg = new Image(); coinImg.src = "assets/coin.png";
         const bombImg = new Image(); bombImg.src = "assets/bom.png";
 
-        // Background
+        // Background Game (INI YANG PENTING)
         const backgroundImg = new Image();
         backgroundImg.src = "assets/Background-game.png";
 
@@ -178,7 +179,7 @@
             for (let i = 0; i < count; i++) leaves.push(new Leaf());
         }
 
-        // ====================== TON CONNECT ======================
+        // TON CONNECT
         async function initTonConnect() {
             if (tonConnectUI) return;
             try {
@@ -193,7 +194,7 @@
             }
         }
 
-        // ====================== START GAME ======================
+        // START GAME
         startBtn.addEventListener("click", async () => {
             if (!tonConnectUI || !tonConnectUI.connected) {
                 alert("⚠️ Please connect your TON wallet first!");
@@ -201,7 +202,6 @@
             }
 
             loadingScreen.style.display = 'flex';
-
             let progress = 0;
             const interval = setInterval(() => {
                 progress += Math.random() * 40;
@@ -219,12 +219,10 @@
         function startCountdown() {
             countdownScreen.style.display = 'flex';
             let count = 3;
-
             const timer = setInterval(() => {
                 countdownScreen.textContent = count;
                 countdownScreen.style.transform = 'scale(1.6)';
                 setTimeout(() => { countdownScreen.style.transform = 'scale(1)'; }, 180);
-
                 count--;
                 if (count < 0) {
                     clearInterval(timer);
@@ -246,7 +244,6 @@
             if (spawnTimer) clearInterval(spawnTimer);
             spawnTimer = setInterval(spawnItem, 850);
             update();
-            addGameControls();
         }
 
         function addGameControls() {
@@ -279,7 +276,7 @@
             if (!isPlaying) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Background
+            // === BACKGROUND GAME ===
             if (backgroundImg.complete) {
                 const scale = Math.max(canvas.width / backgroundImg.width, canvas.height / backgroundImg.height * 0.92);
                 const newW = backgroundImg.width * scale;
@@ -301,7 +298,7 @@
             // Bear
             ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
 
-            // Items
+            // Items (coins & bombs)
             for (let i = items.length - 1; i >= 0; i--) {
                 let item = items[i];
                 item.y += speed;
@@ -312,6 +309,7 @@
                     ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
                 }
 
+                // Collision detection
                 if (item.y + 40 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
                     if (item.isBomb) {
                         score = Math.max(0, score - 40);
@@ -334,6 +332,7 @@
                 }
             }
 
+            // Score text
             ctx.fillStyle = "white";
             ctx.font = "bold 28px Arial";
             ctx.fillText("Score: " + score, 30, 65);
@@ -343,7 +342,7 @@
 
         function gameOver() {
             isPlaying = false;
-            clearInterval(spawnTimer);
+            if (spawnTimer) clearInterval(spawnTimer);
             uiLayer.classList.remove("hidden");
             titleEl.innerText = "GAME OVER!";
             finalScoreEl.innerText = "Final Score: " + score;
@@ -379,43 +378,16 @@
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'wallet_address' });
 
-                if (error) console.error("Upsert error:", error);
-                else console.log("✅ Score berhasil disimpan ke database!");
-
+                console.log(error ? "Upsert error:" : "✅ Score saved!", error || "");
             } catch (err) {
                 console.error("Error saving score:", err);
             }
         }
 
-        function addGameControls() {
-            canvas.addEventListener("touchmove", (e) => {
-                if (!isPlaying) return;
-                bear.x = e.touches[0].clientX - (bear.width / 2);
-                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-                e.preventDefault();
-            }, { passive: false });
-
-            canvas.addEventListener("mousemove", (e) => {
-                if (!isPlaying) return;
-                bear.x = e.clientX - (bear.width / 2);
-                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-            });
-        }
-
-        function spawnItem() {
-            if (!isPlaying) return;
-            const isBomb = Math.random() < 0.28;
-            items.push({
-                x: Math.random() * (canvas.width - 60),
-                y: -60,
-                size: 48,
-                isBomb: isBomb
-            });
-        }
-
         // INIT
         document.addEventListener('DOMContentLoaded', () => {
             initTonConnect();
+            addGameControls();   // Panggil sekali di awal
         });
     </script>
 </body>
