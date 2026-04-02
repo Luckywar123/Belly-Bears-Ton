@@ -15,38 +15,43 @@
 
 <body>
 
-    <!-- LOADING SCREEN -->
+    <!-- ====================== LOADING SCREEN ====================== -->
     <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100;">
-        <img src="assets/ICON.png" alt="Belly Bears" style="width: 120px; height: 120px; margin-bottom: 20px;">
-        <h2 style="color: #f39c12; margin: 0 0 15px 0;">Loading Assets...</h2>
-        <div style="width: 200px; height: 8px; background: #333; border-radius: 10px; overflow: hidden;">
-            <div id="loading-bar" style="width: 0%; height: 100%; background: #f39c12; transition: width 0.3s;"></div>
+        <img src="assets/ICON.png" alt="Belly Bears" style="width: 130px; height: 130px; margin-bottom: 25px;">
+        <h2 style="color: #f39c12; margin: 0 0 20px 0; font-size: 1.8rem;">Loading Assets...</h2>
+        <div style="width: 220px; height: 10px; background: #333; border-radius: 9999px; overflow: hidden;">
+            <div id="loading-bar" style="width: 0%; height: 100%; background: linear-gradient(to right, #f39c12, #f1c40f); transition: width 0.4s;"></div>
         </div>
-        <p id="loading-text" style="color: #aaa; margin-top: 10px; font-size: 0.95rem;">Preparing game...</p>
+        <p id="loading-text" style="color: #aaa; margin-top: 12px; font-size: 1rem;">Preparing game...</p>
+    </div>
+
+    <!-- ====================== COUNTDOWN 3-2-1 ====================== -->
+    <div id="countdown-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); display: none; justify-content: center; align-items: center; z-index: 200; font-size: 140px; color: #f39c12; font-weight: bold; text-shadow: 0 0 30px #f39c12;">
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
-        <h1 id="title" style="color:#f39c12;">BELLY BEARS</h1>
-        <p id="desc">Catch the coins, don't let them escape!</p>
-        <h2 id="finalScore" class="hidden">Final Score: 0</h2>
+        <h1 id="title" style="color:#f39c12; text-align:center; margin: 20px 0 10px 0;">BELLY BEARS</h1>
+        <p id="desc" style="text-align:center; color:#ddd; margin-bottom: 30px;">Catch the coins, don't let them escape!</p>
+        <h2 id="finalScore" class="hidden" style="text-align:center; color:#f39c12; font-size: 2.1rem; margin: 20px 0;">Final Score: 0</h2>
         
-        <div id="ton-connect-button"></div>
+        <div id="ton-connect-button" style="margin: 15px auto; text-align:center;"></div>
         
         <!-- Tombol Start Eating -->
-        <button id="startBtn" style="background: none; border: none; padding: 0; margin: 15px auto 10px; display: block; cursor: pointer;">
-            <img src="assets/start-eating.png" alt="Start Eating" style="width: 85%; max-width: 280px; height: auto;">
+        <button id="startBtn" style="background: none; border: none; padding: 0; margin: 15px auto 20px; display: block; cursor: pointer;">
+            <img src="assets/start-eating.png" alt="Start Eating" style="width: 85%; max-width: 290px; height: auto;">
         </button>
         
         <!-- Tombol Dashboard -->
         <button onclick="window.location.href='dashboard.html'" 
-                style="background: none; border: none; padding: 0; margin: 20px auto 10px; display: block; cursor: pointer;">
-            <img src="assets/Dashboard.png" alt="Dashboard" style="width: 85%; max-width: 260px; height: auto; border-radius: 12px;">
+                style="background: none; border: none; padding: 0; margin: 10px auto; display: block; cursor: pointer;">
+            <img src="assets/Dashboard.png" alt="Dashboard" style="width: 85%; max-width: 270px; height: auto; border-radius: 12px;">
         </button>
     </div>
 
     <script>
+        // ====================== SETUP ======================
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
@@ -56,13 +61,14 @@
 
         let tonConnectUI = null;
 
-        // ==================== GAME SETUP ====================
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const uiLayer = document.getElementById("ui-layer");
         const startBtn = document.getElementById("startBtn");
         const finalScoreEl = document.getElementById("finalScore");
         const titleEl = document.getElementById("title");
+        const loadingScreen = document.getElementById("loading-screen");
+        const countdownScreen = document.getElementById("countdown-screen");
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -92,17 +98,10 @@
         // Items
         const coinImg = new Image(); coinImg.src = "assets/coin.png";
         const bombImg = new Image(); bombImg.src = "assets/bom.png";
-        
+
         // Background
         const backgroundImg = new Image();
-        backgroundImg.src = "assets/background-game.png";  
-        backgroundImg.onload = () => console.log("Background loaded successfully");
-        
-        
-        // Variabel untuk posisi background (kalau mau gerak pelan)
-        let bgOffsetY = 0;
-        if (bgOffsetY >= 150) bgOffsetY = 0;
-
+        backgroundImg.src = "assets/background-game.png";
 
         // Falling Leaves Particles
         let leaves = [];
@@ -113,58 +112,38 @@
             }
             reset() {
                 this.x = Math.random() * canvas.width;
-                this.y = Math.random() * -canvas.height;  // mulai dari atas
-                this.size = Math.random() * 12 + 8;       // ukuran daun
-                this.speed = Math.random() * 1.2 + 0.8;   // kecepatan jatuh
-                this.wobble = Math.random() * Math.PI * 2; // goyang kiri-kanan
-                this.wobbleSpeed = Math.random() * 0.05 + 0.02;
-                this.opacity = Math.random() * 0.6 + 0.4;
+                this.y = Math.random() * -canvas.height;
+                this.size = Math.random() * 14 + 8;
+                this.speed = Math.random() * 1.5 + 0.8;
+                this.wobble = Math.random() * Math.PI * 2;
+                this.wobbleSpeed = Math.random() * 0.06 + 0.03;
+                this.opacity = Math.random() * 0.7 + 0.4;
             }
             update() {
                 this.y += this.speed;
                 this.wobble += this.wobbleSpeed;
-                this.x += Math.sin(this.wobble) * 1.2;   // efek goyang
-
-                // Reset kalau sudah keluar layar bawah
-                if (this.y > canvas.height + 50) {
-                    this.reset();
-                }
+                this.x += Math.sin(this.wobble) * 1.4;
+                if (this.y > canvas.height + 50) this.reset();
             }
             draw() {
                 ctx.save();
                 ctx.globalAlpha = this.opacity;
                 ctx.translate(this.x, this.y);
-                ctx.rotate(Math.sin(this.wobble) * 0.3);  // rotasi daun
-
-                // Gambar daun sederhana (bisa diganti dengan image kalau mau lebih bagus)
-                ctx.fillStyle = "#4ade80";   // hijau daun
+                ctx.rotate(Math.sin(this.wobble) * 0.4);
+                ctx.fillStyle = "#4ade80";
                 ctx.beginPath();
-                ctx.ellipse(0, 0, this.size, this.size * 0.6, 0, 0, Math.PI * 2);
+                ctx.ellipse(0, 0, this.size, this.size * 0.55, 0, 0, Math.PI * 2);
                 ctx.fill();
-
-                // Vein sederhana
-                ctx.strokeStyle = "#22c55e";
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(0, -this.size * 0.5);
-                ctx.lineTo(0, this.size * 0.5);
-                ctx.stroke();
-
                 ctx.restore();
             }
         }
 
-        // Inisialisasi daun (30-50 biji cukup)
-        function initLeaves(count = 40) {
+        function initLeaves(count = 45) {
             leaves = [];
             for (let i = 0; i < count; i++) {
                 leaves.push(new Leaf());
             }
         }
-
-
-
-
 
         // ====================== TON CONNECT ======================
         async function initTonConnect() {
@@ -188,73 +167,73 @@
                 return;
             }
 
-            const loadingScreen = document.getElementById('loading-screen');
             loadingScreen.style.display = 'flex';
 
             let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += Math.random() * 35;
+            const interval = setInterval(() => {
+                progress += Math.random() * 40;
                 if (progress > 100) progress = 100;
                 document.getElementById('loading-bar').style.width = progress + '%';
-            }, 70);
+            }, 80);
 
             setTimeout(() => {
-                clearInterval(progressInterval);
-                document.getElementById('loading-bar').style.width = '100%';
-                document.getElementById('loading-text').textContent = 'Starting game...';
-
-                setTimeout(() => {
-                    loadingScreen.style.display = 'none';
-                    startActualGame();
-                }, 400);
-            }, 1300);
+                clearInterval(interval);
+                loadingScreen.style.display = 'none';
+                startCountdown();
+            }, 1500);
         });
+
+        function startCountdown() {
+            countdownScreen.style.display = 'flex';
+            let count = 3;
+
+            const timer = setInterval(() => {
+                countdownScreen.textContent = count;
+                countdownScreen.style.transform = 'scale(1.6)';
+                setTimeout(() => { countdownScreen.style.transform = 'scale(1)'; }, 180);
+
+                count--;
+                if (count < 0) {
+                    clearInterval(timer);
+                    countdownScreen.style.display = 'none';
+                    startActualGame();
+                }
+            }, 900);
+        }
 
         function startActualGame() {
             isPlaying = true;
             score = 0;
             caughtCoins = 0;
-            speed = 3.5;
             items = [];
-            initLeaves(45);   // jumlah daun
-            bgOffsetY = 0;    // reset posisi background
+            initLeaves(45);
             uiLayer.classList.add("hidden");
             bear.currentImg = bear.imgPending;
 
             if (spawnTimer) clearInterval(spawnTimer);
             spawnTimer = setInterval(spawnItem, 850);
             update();
-
-            // Pastikan event listener aktif saat game mulai
             addGameControls();
         }
 
         function addGameControls() {
-            // Remove old listeners to avoid duplicates
-            canvas.removeEventListener("touchmove", handleTouchMove);
-            canvas.removeEventListener("mousemove", handleMouseMove);
+            canvas.addEventListener("touchmove", (e) => {
+                if (!isPlaying) return;
+                bear.x = e.touches[0].clientX - (bear.width / 2);
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+                e.preventDefault();
+            }, { passive: false });
 
-            canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
-            canvas.addEventListener("mousemove", handleMouseMove);
-        }
-
-        function handleTouchMove(e) {
-            if (!isPlaying) return;
-            bear.x = e.touches[0].clientX - (bear.width / 2);
-            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-            e.preventDefault();
-        }
-
-        function handleMouseMove(e) {
-            if (!isPlaying) return;
-            bear.x = e.clientX - (bear.width / 2);
-            bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            canvas.addEventListener("mousemove", (e) => {
+                if (!isPlaying) return;
+                bear.x = e.clientX - (bear.width / 2);
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            });
         }
 
         function spawnItem() {
             if (!isPlaying) return;
             const isBomb = Math.random() < 0.28;
-
             items.push({
                 x: Math.random() * (canvas.width - 60),
                 y: -60,
@@ -265,43 +244,31 @@
 
         function update() {
             if (!isPlaying) return;
-
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // ==================== BACKGROUND AUTO SCALE ====================
+            // Background
             if (backgroundImg.complete) {
-                const imgW = backgroundImg.width;
-                const imgH = backgroundImg.height;
-                const canvasW = canvas.width;
-                const canvasH = canvas.height;
-
-                const scale = Math.max(canvasW / imgW, canvasH / imgH);   // Cover style
-
-                const newW = imgW * scale;
-                const newH = imgH * scale;
-
-                const offsetX = (canvasW - newW) / 2;
-                const offsetY = (canvasH - newH) / 2;
-
-                ctx.drawImage(backgroundImg, 
-                    offsetX, offsetY + bgOffsetY, 
-                    newW, newH);
+                const scale = Math.max(canvas.width / backgroundImg.width, canvas.height / backgroundImg.height);
+                const newW = backgroundImg.width * scale;
+                const newH = backgroundImg.height * scale;
+                const offsetX = (canvas.width - newW) / 2;
+                const offsetY = (canvas.height - newH) / 2;
+                ctx.drawImage(backgroundImg, offsetX, offsetY, newW, newH);
             } else {
-                // Fallback warna hutan
                 ctx.fillStyle = "#1a2f1f";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
-            // ==================== FALLING LEAVES ====================
+            // Falling Leaves
             for (let i = 0; i < leaves.length; i++) {
                 leaves[i].update();
                 leaves[i].draw();
             }
 
-            // ==================== BEAR ====================
+            // Bear
             ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
 
-            // ==================== ITEMS (COIN & BOMB) ====================
+            // Items (Coin & Bomb)
             for (let i = items.length - 1; i >= 0; i--) {
                 let item = items[i];
                 item.y += speed;
@@ -312,34 +279,19 @@
                     ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
                 }
 
-                // === COLLISION DETECTION YANG LEBIH BAIK ===
-                const itemCenterX = item.x + item.size / 2;
-                const itemCenterY = item.y + item.size / 2;
-                const bearCenterX = bear.x + bear.width / 2;
-                const bearCenterY = bear.y + bear.height / 2;
-
-                const distanceX = Math.abs(itemCenterX - bearCenterX);
-                const distanceY = Math.abs(itemCenterY - bearCenterY);
-
-                if (distanceX < (item.size / 2 + bear.width / 2 - 10) && 
-                    distanceY < (item.size / 2 + bear.height / 2 - 20)) {
-
+                if (item.y + 40 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
                     if (item.isBomb) {
                         score = Math.max(0, score - 40);
-                        // Efek getar atau suara bisa ditambah nanti
                     } else {
                         score += 15;
-                        caughtCoins += 1;           // ← Ini yang bikin koin terhitung
+                        caughtCoins += 1;
                         bear.currentImg = bear.imgEating;
-                        setTimeout(() => { 
-                            if (isPlaying) bear.currentImg = bear.imgPending; 
-                        }, 280);
+                        setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 280);
                     }
                     items.splice(i, 1);
                     continue;
                 }
 
-                // Item keluar layar bawah
                 if (item.y > canvas.height + 50) {
                     if (!item.isBomb) {
                         gameOver();
@@ -348,6 +300,14 @@
                     items.splice(i, 1);
                 }
             }
+
+            // Score
+            ctx.fillStyle = "white";
+            ctx.font = "bold 28px Arial";
+            ctx.fillText("Score: " + score, 30, 65);
+
+            requestAnimationFrame(update);
+        }
 
         function gameOver() {
             isPlaying = false;
@@ -361,29 +321,23 @@
         }
 
         async function saveScore(finalScore, coinsCaught) {
-            if (!tonConnectUI || !tonConnectUI.connected) {
-                console.warn("TON Connect not ready, score not saved");
-                return;
-            }
-
+            if (!tonConnectUI || !tonConnectUI.connected) return;
             const address = tonConnectUI.account.address;
             const tgUser = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
 
             try {
-                const { data: current, error: fetchError } = await sb
+                const { data: current } = await sb
                     .from('highscores')
                     .select('best_score, total_coins, games_played')
                     .eq('wallet_address', address)
                     .maybeSingle();
 
-                if (fetchError) console.error("Fetch error:", fetchError);
-
                 const newBest = Math.max(current?.best_score || 0, finalScore);
-                const newTotalCoins = (current?.total_coins || 0) + (coinsCaught || 0);
+                const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
                 const newGames = (current?.games_played || 0) + 1;
 
-                const { error: upsertError } = await sb.from('highscores').upsert({
+                await sb.from('highscores').upsert({
                     wallet_address: address,
                     username: username,
                     best_score: newBest,
@@ -391,18 +345,12 @@
                     games_played: newGames,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'wallet_address' });
-
-                if (upsertError) {
-                    console.error("Upsert error:", upsertError);
-                } else {
-                    console.log(`✅ Score saved! Score: ${finalScore}, Coins: ${coinsCaught}`);
-                }
             } catch (err) {
                 console.error("Error saving score:", err);
             }
         }
 
-        // INIT
+        // ====================== INIT ======================
         document.addEventListener('DOMContentLoaded', () => {
             initTonConnect();
         });
