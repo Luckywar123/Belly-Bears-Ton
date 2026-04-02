@@ -101,7 +101,7 @@
         
         // Variabel untuk posisi background (kalau mau gerak pelan)
         let bgOffsetY = 0;
-
+        if (bgOffsetY >= 150) bgOffsetY = 0;
 
 
         // Falling Leaves Particles
@@ -217,6 +217,7 @@
             speed = 3.5;
             items = [];
             initLeaves(45);   // jumlah daun
+            bgOffsetY = 0;    // reset posisi background
             uiLayer.classList.add("hidden");
             bear.currentImg = bear.imgPending;
 
@@ -311,13 +312,24 @@
                     ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
                 }
 
-                // Collision dengan bear
-                if (item.y + 40 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
+                // === COLLISION DETECTION YANG LEBIH BAIK ===
+                const itemCenterX = item.x + item.size / 2;
+                const itemCenterY = item.y + item.size / 2;
+                const bearCenterX = bear.x + bear.width / 2;
+                const bearCenterY = bear.y + bear.height / 2;
+
+                const distanceX = Math.abs(itemCenterX - bearCenterX);
+                const distanceY = Math.abs(itemCenterY - bearCenterY);
+
+                if (distanceX < (item.size / 2 + bear.width / 2 - 10) && 
+                    distanceY < (item.size / 2 + bear.height / 2 - 20)) {
+
                     if (item.isBomb) {
                         score = Math.max(0, score - 40);
+                        // Efek getar atau suara bisa ditambah nanti
                     } else {
                         score += 15;
-                        caughtCoins += 1;
+                        caughtCoins += 1;           // ← Ini yang bikin koin terhitung
                         bear.currentImg = bear.imgEating;
                         setTimeout(() => { 
                             if (isPlaying) bear.currentImg = bear.imgPending; 
@@ -337,14 +349,6 @@
                 }
             }
 
-            // ==================== SCORE TEXT ====================
-            ctx.fillStyle = "white";
-            ctx.font = "bold 28px Arial";
-            ctx.fillText("Score: " + score, 30, 65);
-
-            requestAnimationFrame(update);
-        }
-
         function gameOver() {
             isPlaying = false;
             clearInterval(spawnTimer);
@@ -357,23 +361,29 @@
         }
 
         async function saveScore(finalScore, coinsCaught) {
-            if (!tonConnectUI || !tonConnectUI.connected) return;
+            if (!tonConnectUI || !tonConnectUI.connected) {
+                console.warn("TON Connect not ready, score not saved");
+                return;
+            }
+
             const address = tonConnectUI.account.address;
             const tgUser = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
 
             try {
-                const { data: current } = await sb
+                const { data: current, error: fetchError } = await sb
                     .from('highscores')
                     .select('best_score, total_coins, games_played')
                     .eq('wallet_address', address)
                     .maybeSingle();
 
+                if (fetchError) console.error("Fetch error:", fetchError);
+
                 const newBest = Math.max(current?.best_score || 0, finalScore);
-                const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
+                const newTotalCoins = (current?.total_coins || 0) + (coinsCaught || 0);
                 const newGames = (current?.games_played || 0) + 1;
 
-                await sb.from('highscores').upsert({
+                const { error: upsertError } = await sb.from('highscores').upsert({
                     wallet_address: address,
                     username: username,
                     best_score: newBest,
@@ -381,6 +391,12 @@
                     games_played: newGames,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'wallet_address' });
+
+                if (upsertError) {
+                    console.error("Upsert error:", upsertError);
+                } else {
+                    console.log(`✅ Score saved! Score: ${finalScore}, Coins: ${coinsCaught}`);
+                }
             } catch (err) {
                 console.error("Error saving score:", err);
             }
