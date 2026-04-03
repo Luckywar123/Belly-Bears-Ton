@@ -156,9 +156,13 @@
         let items = [], particles = [], leaves = [];
         
         let slowMotionUntil = 0;
-            const bgMusic = new Audio('assets/music-game.m4a');
+            const bgMusic = new Audio('assets/music-game.mp3');
             bgMusic.loop = true;
             bgMusic.volume = 0.65;
+
+
+            const eatSound = new Audio('assets/suara-makan.mp3');
+            eatSound.volume = 0.55;
 
         // Bear
         const bear = {
@@ -436,6 +440,9 @@
                             bear.currentImg = bear.imgEating;
                             setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);
                             createParticles(item.x + 20, item.y + 10);
+
+                            eatSound.currentTime = 0;
+                            eatSound.play().catch(() => {});
                         }
                         items.splice(i, 1);
                         continue;
