@@ -236,13 +236,13 @@
         async function initTonConnect() {
             if (tonConnectUI) return;
             try {
-                tonConnectUI = new TonConnectUI({
+                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
                     manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
                     buttonRootId: 'ton-connect-button',
                     uiPreferences: { theme: 'DARK', language: 'en' }
                 });
                 await tonConnectUI.connectionRestored;
-                console.log("✅ TON Connected");
+                console.log("✅ TON Connected:", tonConnectUI.connected);
             } catch (e) { console.error("TON Connect error:", e); }
         }
 
