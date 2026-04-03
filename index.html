@@ -97,6 +97,7 @@
 
     <canvas id="gameCanvas"></canvas>
 
+    <!-- MENU UTAMA -->
     <div id="ui-layer">
         <h1 id="title" style="color:#f39c12;text-align:center;margin:40px 0 10px 0;font-size:2.8rem;">BELLY BEARS</h1>
         <p id="desc" style="text-align:center;color:#ddd;margin-bottom:20px;font-size:1.1rem;">Catch the coins, don't let them escape!</p>
@@ -133,28 +134,20 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const uiLayer = document.getElementById("ui-layer");
-        const startBtn = document.getElementById("startBtn");
-        const finalScoreEl = document.getElementById("finalScore");
-        const titleEl = document.getElementById("title");
-        const loadingScreen = document.getElementById("loading-screen");
-        const countdownScreen = document.getElementById("countdown-screen");
         const ingameUI = document.getElementById("ingame-ui");
+        const startBtn = document.getElementById("startBtn");
+        const titleEl = document.getElementById("title");
         const scoreDisplay = document.getElementById("scoreDisplay");
         const levelDisplay = document.getElementById("levelDisplay");
         const comboDisplay = document.getElementById("comboDisplay");
         const pauseBtn = document.getElementById("pauseBtn");
 
         let isPlaying = false, isPaused = false;
-        let score = 0;
-        let caughtCoins = 0;
-        let level = 1;
-        let combo = 0;
-        let lastComboTime = 0;
-        let items = [];
-        let particles = [];
-        let leaves = [];
-        let speed = 3.5;
+        let score = 0, caughtCoins = 0, level = 1, combo = 0, lastComboTime = 0;
+        let speed = 3.5, spawnInterval = 850;
         let spawnTimer;
+        let items = [], particles = [], leaves = [];
+        let slowMotionUntil = 0;
 
         // Bear
         const bear = {
@@ -176,72 +169,23 @@
         const bombImg = new Image(); bombImg.src = "assets/bom.png";
         const backgroundImg = new Image();
         backgroundImg.src = "assets/Background-game.png";
-        const slowPowerImg = new Image(); slowPowerImg.src = "assets/slow-power.png"; // buat asset sendiri atau pakai coin dengan warna berbeda
+        const slowPowerImg = new Image(); slowPowerImg.src = "assets/slow-power.png"; 
 
-        let slowMotionUntil = 0;
-
-        let leaves = [];
-
-        class Leaf {
-            constructor() { this.reset(); }
-            reset() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * -canvas.height;
-                this.size = Math.random() * 14 + 8;
-                this.speed = Math.random() * 1.5 + 0.8;
-                this.wobble = Math.random() * Math.PI * 2;
-                this.wobbleSpeed = Math.random() * 0.06 + 0.03;
-                this.opacity = Math.random() * 0.7 + 0.4;
-            }
-            update() {
-                this.y += this.speed;
-                this.wobble += this.wobbleSpeed;
-                this.x += Math.sin(this.wobble) * 1.4;
-                if (this.y > canvas.height + 50) this.reset();
-            }
-            draw() {
-                ctx.save();
-                ctx.globalAlpha = this.opacity;
-                ctx.translate(this.x, this.y);
-                ctx.rotate(Math.sin(this.wobble) * 0.4);
-                ctx.fillStyle = "#4ade80";
-                ctx.beginPath();
-                ctx.ellipse(0, 0, this.size, this.size * 0.55, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
+        class Leaf { constructor(){this.reset();} reset(){this.x=Math.random()*canvas.width;this.y=Math.random()*-canvas.height*1.5;this.size=Math.random()*16+9;this.speed=Math.random()*1.8+0.9;this.wobble=Math.random()*Math.PI*2;this.wobbleSpeed=Math.random()*0.08+0.04;this.opacity=Math.random()*0.6+0.35;}
+            update(){this.y+=this.speed;this.wobble+=this.wobbleSpeed;this.x+=Math.sin(this.wobble)*1.6;if(this.y>canvas.height+60)this.reset();}
+            draw(){ctx.save();ctx.globalAlpha=this.opacity;ctx.translate(this.x,this.y);ctx.rotate(Math.sin(this.wobble)*0.45);ctx.fillStyle="#4ade80";ctx.beginPath();ctx.ellipse(0,0,this.size,this.size*0.58,0,0,Math.PI*2);ctx.fill();ctx.restore();}
+        }
+        class Particle { constructor(x,y){this.x=x;this.y=y;this.vx=Math.random()*6-3;this.vy=Math.random()*-5-2;this.life=28;this.color=`hsl(${Math.random()*40+40},100%,70%)`;}
+            update(){this.x+=this.vx;this.y+=this.vy;this.vy+=0.25;this.life--;}
+            draw(){ctx.globalAlpha=this.life/28;ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,6,6);}
         }
 
-        class Particle {
-            constructor(x, y) {
-                this.x = x; this.y = y;
-                this.vx = Math.random() * 6 - 3;
-                this.vy = Math.random() * -5 - 2;
-                this.life = 28;
-                this.color = `hsl(${Math.random()*40 + 40}, 100%, 70%)`;
-            }
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-                this.vy += 0.25;
-                this.life--;
-            }
-            draw() {
-                ctx.globalAlpha = this.life / 28;
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x, this.y, 6, 6);
-            }
-        }
-
-        function initLeaves(count = 45) {
-            leaves = [];
-            for (let i = 0; i < count; i++) leaves.push(new Leaf());
-        }
-
-        function resizeCanvas() {
+        
+        function initLeaves(count=55){ leaves=[]; for(let i=0;i<count;i++) leaves.push(new Leaf()); }
+        function resizeCanvas(){
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            bear.x = canvas.width / 2 - bear.width / 2;
+            bear.x = canvas.width/2 - bear.width/2;
             bear.y = canvas.height - 165;
         }
         window.addEventListener('resize', resizeCanvas);
