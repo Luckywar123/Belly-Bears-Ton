@@ -244,8 +244,8 @@
                     buttonRootId: 'ton-connect-button',
                     uiPreferences: { theme: 'DARK', language: 'en' }
                 });
-                await tonConnectUI.connectionRestored;
-                console.log("✅ TON Connection restored:", tonConnectUI.connected);
+                await tonConnectUI.connectionRestored;   // ← INI YANG PENTING
+                console.log("✅ TON Connect restored:", tonConnectUI.connected);
             } catch (e) {
                 console.error("TON Connect error:", e);
             }
