@@ -154,7 +154,11 @@
         let speed = 3.5, spawnInterval = 850;
         let spawnTimer;
         let items = [], particles = [], leaves = [];
+        
         let slowMotionUntil = 0;
+            const bgMusic = new Audio('assets/music-game.m4a');
+            bgMusic.loop = true;
+            bgMusic.volume = 0.65;
 
         // Bear
         const bear = {
@@ -319,6 +323,10 @@
 
             update();           // mulai game loop
             addGameControls();
+
+            // Start background music
+            bgMusic.currentTime = 0;
+            bgMusic.play().catch(e => console.warn("Music play error:", e));
         }
 
         function addGameControls() {
@@ -409,7 +417,7 @@
                     if (item.type === 'bomb') {
                         ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
                     } else if (item.type === 'slow') {
-                        ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 72, 72);
+                        ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
                     } else {
                         ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
                     }
@@ -473,6 +481,8 @@
         }
 
         function gameOver() {
+            bgMusic.pause();
+            
             isPlaying = false;
             if (spawnTimer) clearInterval(spawnTimer);
 
