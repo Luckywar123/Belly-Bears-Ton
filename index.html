@@ -231,7 +231,7 @@
             }
         }
 
-        function initLeaves(count = 55){
+        function initLeaves(count = 25){
             leaves = [];
             for(let i = 0; i < count; i++) leaves.push(new Leaf());
         }
@@ -310,7 +310,7 @@
             items = []; particles = []; slowMotionUntil = 0;
 
             resizeCanvas();
-            initLeaves(55);
+            initLeaves(25);
             ingameUI.style.display = 'block';
             canvas.style.opacity = "1";
             bear.currentImg = bear.imgPending;
@@ -482,7 +482,7 @@
 
         function gameOver() {
             bgMusic.pause();
-            
+
             isPlaying = false;
             if (spawnTimer) clearInterval(spawnTimer);
 
@@ -543,3 +543,10 @@
     </script>
 </body>
 </html>
+<footer style="position: fixed; bottom: 10px; width: 100%; text-align: center; color: #888; font-size: 0.9rem; z-index: 50;">
+    &copy; 2024 Belly Bears. All rights reserved.
+    
+    <div style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 10px; color: #888; pointer-events: auto;">
+    Music: "Carefree" by Kevin MacLeod (CC BY 4.0)
+    </div>   
+</footer>
