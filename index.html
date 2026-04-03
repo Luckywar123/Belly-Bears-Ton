@@ -78,8 +78,8 @@
 
 <body>
 
-    <!-- LOADING SCREEN -->
-    <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100;">
+    <!-- LOADING SCREEN - DIBUAT VISIBLE DARI AWAL -->
+    <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;">
         <img src="assets/ICON.png" alt="Belly Bears" style="width: 130px; height: 130px; margin-bottom: 25px;">
         <h2 style="color: #f39c12; margin: 0 0 20px 0; font-size: 1.8rem;">Loading Assets...</h2>
         <div style="width: 220px; height: 10px; background: #333; border-radius: 9999px; overflow: hidden;">
@@ -143,18 +143,18 @@
         const levelDisplay = document.getElementById("levelDisplay");
         const comboDisplay = document.getElementById("comboDisplay");
         const pauseBtn = document.getElementById("pauseBtn");
-        
-        // ELEMENTS YANG SEBELUMNYA ERROR
         const countdownScreen = document.getElementById("countdown-screen");
         const finalScoreContainer = document.getElementById("finalScoreContainer");
         const finalScoreEl = document.getElementById("finalScoreEl");
+        const loadingScreen = document.getElementById("loading-screen");
+        const loadingBar = document.getElementById("loading-bar");
+        const loadingText = document.getElementById("loading-text");
 
         let isPlaying = false, isPaused = false;
         let score = 0, caughtCoins = 0, level = 1, combo = 0, lastComboTime = 0;
         let speed = 3.5, spawnInterval = 850;
         let spawnTimer;
         let items = [], particles = [], leaves = [];
-        
         let slowMotionUntil = 0;
             const bgMusic = new Audio('assets/music-game.m4a');
             bgMusic.loop = true;
@@ -257,6 +257,69 @@
             bear.y = canvas.height - 165;
         }
         window.addEventListener('resize', resizeCanvas);
+
+
+
+
+
+        // ====================== PRELOAD ALL ASSETS ======================
+        let totalAssets = 0;
+        let loadedAssets = 0;
+
+        function preloadAllAssets() {
+            const imageList = [
+                bear.imgPending,
+                bear.imgEating,
+                coinImg,
+                bombImg,
+                backgroundImg,
+                slowPowerImg,
+                { src: "assets/ICON.png" },
+                { src: "assets/start-eating.png" },
+                { src: "assets/Dashboard.png" }
+            ];
+
+            const audioList = [bgMusic, eatSound, bombSound, menuMusic, jamMusic];
+
+            totalAssets = imageList.length + audioList.length;
+            loadedAssets = 0;
+
+            // Preload Images
+            imageList.forEach(item => {
+                const img = item.src ? new Image() : item;
+                img.onload = () => assetLoaded();
+                img.onerror = () => { console.warn("Image failed:", img.src || item.src); assetLoaded(); };
+                if (item.src) img.src = item.src;
+            });
+
+            // Preload Audio (canplaythrough = siap diputar)
+            audioList.forEach(audio => {
+                audio.oncanplaythrough = () => assetLoaded();
+                audio.onerror = () => { console.warn("Audio failed:", audio.src); assetLoaded(); };
+                audio.load(); // force preload
+            });
+        }
+
+        function assetLoaded() {
+            loadedAssets++;
+            const percent = Math.floor((loadedAssets / totalAssets) * 100);
+            loadingBar.style.width = percent + "%";
+            loadingText.textContent = `Loading assets... ${percent}%`;
+
+            if (loadedAssets >= totalAssets) {
+                setTimeout(() => {
+                    loadingScreen.style.display = "none";
+                    uiLayer.style.display = "block";
+                    uiLayer.style.opacity = "1";
+
+                    // Mainkan menu music setelah semua asset siap
+                    menuMusic.play().catch(e => console.warn("Menu music blocked (normal di mobile):", e));
+                }, 400);
+            }
+        }
+
+
+
 
         // TON CONNECT (SUDAH DIBENERIN)
         async function initTonConnect() {
@@ -569,6 +632,14 @@
 
             // Putar lagu menu otomatis
             menuMusic.play().catch(e => console.warn("Menu music play error:", e));
+
+            // Sembunyikan UI dulu
+            uiLayer.style.display = "none";
+
+            // Tampilkan loading screen + preload
+            loadingScreen.style.display = "flex";
+            preloadAllAssets();
+
         });
     </script>
 </body>
