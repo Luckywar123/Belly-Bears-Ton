@@ -101,6 +101,14 @@
         </button>
     </div>
 
+    <!-- IN-GAME UI -->
+    <div id="ingame-ui">
+        <div class="stat" id="scoreDisplay">Score: 0</div>
+        <div class="stat" id="levelDisplay">Level 1</div>
+        <div class="stat" id="comboDisplay">Combo ×1.5</div>
+        <button id="pauseBtn" style="position:absolute;top:20px;right:25px;font-size:32px;color:white;background:none;border:none;cursor:pointer;pointer-events:auto;">⏸</button>
+    </div>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
@@ -119,11 +127,21 @@
         const titleEl = document.getElementById("title");
         const loadingScreen = document.getElementById("loading-screen");
         const countdownScreen = document.getElementById("countdown-screen");
+        const ingameUI = document.getElementById("ingame-ui");
+        const scoreDisplay = document.getElementById("scoreDisplay");
+        const levelDisplay = document.getElementById("levelDisplay");
+        const comboDisplay = document.getElementById("comboDisplay");
+        const pauseBtn = document.getElementById("pauseBtn");
 
-        let isPlaying = false;
+        let isPlaying = false, isPaused = false;
         let score = 0;
         let caughtCoins = 0;
+        let level = 1;
+        let combo = 0;
+        let lastComboTime = 0;
         let items = [];
+        let particles = [];
+        let leaves = [];
         let speed = 3.5;
         let spawnTimer;
 
@@ -227,8 +245,9 @@
                     uiPreferences: { theme: 'DARK', language: 'en' }
                 });
                 await tonConnectUI.connectionRestored;
+                console.log("✅ TON Connection restored:", tonConnectUI.connected);
             } catch (e) {
-                console.error("TON Connect failed:", e);
+                console.error("TON Connect error:", e);
             }
         }
 
@@ -239,24 +258,46 @@
                 return;
             }
 
-            // Hide UI Menu
             uiLayer.style.opacity = "0";
             setTimeout(() => uiLayer.style.display = "none", 400);
 
-            loadingScreen.style.display = 'flex';
+            document.getElementById("loading-screen").style.display = 'flex';
 
             let progress = 0;
             const interval = setInterval(() => {
-                progress += Math.random() * 40;
+                progress += Math.random()*40;
                 if (progress > 100) progress = 100;
                 document.getElementById('loading-bar').style.width = progress + '%';
-            }, 80);
+            }, 70);
 
             setTimeout(() => {
                 clearInterval(interval);
-                loadingScreen.style.display = 'none';
-                startCountdown();
-            }, 1400);
+                document.getElementById("loading-screen").style.display = 'none';
+
+                // Reset semua
+                score=0; caughtCoins=0; level=1; combo=0; speed=3.5; spawnInterval=850;
+                items=[]; particles=[]; slowMotionUntil=0;
+                resizeCanvas(); initLeaves(55);
+                ingameUI.style.display = 'block';
+                canvas.style.opacity = "1";
+                bear.currentImg = bear.imgPending;
+
+                isPlaying = true; isPaused = false;
+                spawnTimer = setInterval(spawnItem, spawnInterval);
+                update();
+
+                // Controls
+                canvas.ontouchmove = (e) => {
+                    if (!isPlaying || isPaused) return;
+                    bear.x = e.touches[0].clientX - bear.width/2;
+                    bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+                };
+                canvas.onmousemove = (e) => {
+                    if (!isPlaying || isPaused) return;
+                    bear.x = e.clientX - bear.width/2;
+                    bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+                };
+            }, 1300);
         });
 
         function startCountdown() {
@@ -463,7 +504,7 @@
             isPaused = !isPaused;
             pauseBtn.textContent = isPaused ? '▶' : '⏸';
         });
-        
+
         async function saveScore(finalScore, coinsCaught) {
             if (!tonConnectUI || !tonConnectUI.connected) return;
             const address = tonConnectUI.account.address;
