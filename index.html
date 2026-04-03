@@ -62,6 +62,20 @@
             opacity: 0;
             transition: opacity 0.4s;
         }
+
+        #ingame-ui { 
+            display: none; 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 15; pointer-events: none; 
+        }
+        .stat { 
+            position: absolute; color: white; font-weight: bold; 
+            font-size: 24px; text-shadow: 0 0 10px rgba(0,0,0,0.9); z-index: 20; 
+        }
+        #scoreDisplay { top: 20px; left: 25px; }
+        #levelDisplay { top: 20px; right: 25px; color: #f1c40f; }
+        #comboDisplay { top: 65px; left: 25px; font-size: 20px; color: #ffeb3b; display: none; }
+        
     </style>
 </head>
 
@@ -84,24 +98,21 @@
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
-        <h1 id="title" style="color:#f39c12; text-align:center; margin: 40px 0 10px 0; font-size: 2.8rem;">BELLY BEARS</h1>
-        <p id="desc" style="text-align:center; color:#ddd; margin-bottom: 40px; font-size: 1.1rem;">Catch the coins, don't let them escape!</p>
+        <h1 id="title" style="color:#f39c12;text-align:center;margin:40px 0 10px 0;font-size:2.8rem;">BELLY BEARS</h1>
+        <p id="desc" style="text-align:center;color:#ddd;margin-bottom:20px;font-size:1.1rem;">Catch the coins, don't let them escape!</p>
         
-        <div id="ton-connect-button" style="margin: 20px auto; text-align:center;"></div>
+        <div id="ton-connect-button" style="margin:20px auto;text-align:center;"></div>
         
-        <!-- Start Eating Button -->
-        <button id="startBtn" style="background: none; border: none; padding: 0; margin: 15px auto 20px; display: block; cursor: pointer;">
-            <img src="assets/start-eating.png" alt="Start Eating" style="width: 85%; max-width: 290px; height: auto;">
+        <button id="startBtn" style="background:none;border:none;padding:0;margin:15px auto 20px;display:block;cursor:pointer;">
+            <img src="assets/start-eating.png" alt="Start Eating" style="width:85%;max-width:290px;height:auto;">
         </button>
         
-        <!-- Dashboard Button -->
-        <button onclick="window.location.href='dashboard.html'" 
-                style="background: none; border: none; padding: 0; margin: 10px auto; display: block; cursor: pointer;">
-            <img src="assets/Dashboard.png" alt="Dashboard" style="width: 85%; max-width: 270px; height: auto; border-radius: 12px;">
+        <button onclick="window.location.href='dashboard.html'" style="background:none;border:none;padding:0;margin:10px auto;display:block;cursor:pointer;">
+            <img src="assets/Dashboard.png" alt="Dashboard" style="width:85%;max-width:270px;height:auto;border-radius:12px;">
         </button>
     </div>
 
-    <!-- IN-GAME UI -->
+    <!-- IN-GAME UI (hanya muncul saat main) -->
     <div id="ingame-ui">
         <div class="stat" id="scoreDisplay">Score: 0</div>
         <div class="stat" id="levelDisplay">Level 1</div>
@@ -235,7 +246,7 @@
         }
         window.addEventListener('resize', resizeCanvas);
 
-        // TON Connect
+        // TON CONNECT
         async function initTonConnect() {
             if (tonConnectUI) return;
             try {
@@ -244,11 +255,9 @@
                     buttonRootId: 'ton-connect-button',
                     uiPreferences: { theme: 'DARK', language: 'en' }
                 });
-                await tonConnectUI.connectionRestored;   // ← INI YANG PENTING
-                console.log("✅ TON Connect restored:", tonConnectUI.connected);
-            } catch (e) {
-                console.error("TON Connect error:", e);
-            }
+                await tonConnectUI.connectionRestored;
+                console.log("✅ TON Connected:", tonConnectUI.connected);
+            } catch (e) { console.error("TON Connect error:", e); }
         }
 
         // ====================== START GAME ======================
@@ -259,7 +268,7 @@
             }
 
             uiLayer.style.opacity = "0";
-            setTimeout(() => uiLayer.style.display = "none", 400);
+            setTimeout(() => { uiLayer.style.display = "none"; }, 400);
 
             document.getElementById("loading-screen").style.display = 'flex';
 
@@ -274,7 +283,7 @@
                 clearInterval(interval);
                 document.getElementById("loading-screen").style.display = 'none';
 
-                // Reset semua
+                // Reset game
                 score=0; caughtCoins=0; level=1; combo=0; speed=3.5; spawnInterval=850;
                 items=[]; particles=[]; slowMotionUntil=0;
                 resizeCanvas(); initLeaves(55);
@@ -283,16 +292,17 @@
                 bear.currentImg = bear.imgPending;
 
                 isPlaying = true; isPaused = false;
+
                 spawnTimer = setInterval(spawnItem, spawnInterval);
                 update();
 
                 // Controls
-                canvas.ontouchmove = (e) => {
+                canvas.ontouchmove = e => {
                     if (!isPlaying || isPaused) return;
                     bear.x = e.touches[0].clientX - bear.width/2;
                     bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
                 };
-                canvas.onmousemove = (e) => {
+                canvas.onmousemove = e => {
                     if (!isPlaying || isPaused) return;
                     bear.x = e.clientX - bear.width/2;
                     bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
