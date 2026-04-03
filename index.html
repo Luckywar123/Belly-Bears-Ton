@@ -158,16 +158,22 @@
         let slowMotionUntil = 0;
             const bgMusic = new Audio('assets/music-game.mp3');
             bgMusic.loop = true;
-            bgMusic.volume = 0.65;
+            bgMusic.volume = 0.75;
 
 
             const eatSound = new Audio('assets/suara-makan.mp3');
             eatSound.volume = 0.55;
 
+            const bombSound = new Audio('assets/bom-bgm.mp3');
+            bombSound.volume = 0.65;
+
             // Lagu Menu (berbeda dengan in-game)
             const menuMusic = new Audio('assets/bgm.m4a');
             menuMusic.loop = true;
             menuMusic.volume = 0.65;
+
+            const jamMusic = new Audio('assets/jam-bgm.mp3');
+            jamMusic.volume = 0.55;
             // Bear
         const bear = {
             x: 0, y: 0, width: 90, height: 90,
@@ -366,7 +372,7 @@
 
             if (newLevel !== level) {
                 level = newLevel;
-                speed = Math.min(3.5 + (level - 1) * 0.6, 9.5);
+                speed = Math.min(3.5 + (level - 1) * 0.3, 9.5);
                 spawnInterval = Math.max(850 - (level - 1) * 60, 380);
 
                 if (spawnTimer) clearInterval(spawnTimer);
@@ -437,8 +443,13 @@
                         if (item.type === 'bomb') {
                             score = Math.max(0, score - 45);
                             combo = 0;
+
+                            bombSound.currentTime = 0;
+                            bombSound.play().catch(() => {});
                         } else if (item.type === 'slow') {
-                            slowMotionUntil = now + 4200;
+                            slowMotionUntil = now + 5500;
+                            jamMusic.currentTime = 0;
+                            jamMusic.play().catch(() => {});
                         } else {
                             const multiplier = (now - lastComboTime < 1200 && combo >= 2) ? 1.5 : 1;
                             score += Math.floor(15 * multiplier);
