@@ -62,6 +62,7 @@
             height: 100%;
             z-index: 10;
             pointer-events: none;
+            transition: opacity 0.45s ease-out;
         }
 
         #ui-layer > * {
@@ -85,6 +86,12 @@
         #scoreDisplay { top: 20px; left: 25px; }
         #levelDisplay { top: 20px; right: 25px; color: #f1c40f; }
         #comboDisplay { top: 65px; left: 25px; font-size: 20px; color: #ffeb3b; display: none; }
+
+
+        #countdown-screen {
+            transition: transform 0.4s ease-out, opacity 0.35s ease-out;
+        }
+
     </style>
 </head>
 
@@ -286,9 +293,15 @@
                 bombImg,
                 backgroundImg,
                 slowPowerImg,
-                { src: "assets/ICON.png" },
-                { src: "assets/start-eating.png" },
-                { src: "assets/Dashboard.png" }
+                { src: "assets/background-game.png" },
+                { src: "assets/background-dashboard.png" },
+                { src: "assets/coin.png" },
+                { src: "assets/bom.png" },
+                { src: "assets/slow-power.png" },
+                { src: "assets/Beruang-pending.png" },
+                { src: "assets/Beruang-makan.png" },
+                { src: "assets/ICON.png" }
+
             ];
 
             const audioList = [bgMusic, eatSound, bombSound, menuMusic, jamMusic];
@@ -350,61 +363,82 @@
         }
 
         // ====================== START GAME ======================
-        startBtn.addEventListener("click", async () => {
+       startBtn.addEventListener("click", async () => {
             if (!tonConnectUI || !tonConnectUI.connected) {
                 alert("⚠️ Please connect your TON wallet first!");
                 return;
             }
 
-            // Reset menu text
+            // Reset title jika sebelumnya Game Over
             titleEl.innerText = "BELLY BEARS";
             finalScoreContainer.style.display = 'none';
 
-            // Sembunyikan menu utama
+            // Hilangkan menu dengan animasi yang lebih kuat
+            uiLayer.style.transition = "opacity 0.4s ease-out";
             uiLayer.style.opacity = "0";
-            setTimeout(() => { 
-                uiLayer.style.display = "none"; 
-            }, 400);
 
-            // Langsung ke countdown (tanpa loading screen lagi)
+            // Tunggu animasi opacity selesai, baru sembunyikan total
+            setTimeout(() => {
+                uiLayer.style.display = "none";
+                uiLayer.style.opacity = "1";   // reset opacity untuk next time
+            }, 450);
+
+            // Langsung mulai countdown
             startCountdown();
         });
 
         function startCountdown() {
             countdownScreen.style.display = 'flex';
+            countdownScreen.style.opacity = '1';
             let count = 3;
-            countdownScreen.style.fontSize = '140px';
 
             const timer = setInterval(() => {
                 countdownScreen.textContent = count;
-                countdownScreen.style.transform = 'scale(1.8)';
-                countdownScreen.style.opacity = '1';
-
+                countdownScreen.style.transform = 'scale(1.7)';
+                
+                // Animasi pop
                 setTimeout(() => {
-                    countdownScreen.style.transform = 'scale(0.6)';
+                    countdownScreen.style.transform = 'scale(0.5)';
                     countdownScreen.style.opacity = '0';
-                }, 400);
+                }, 380);
 
                 count--;
+
                 if (count < 0) {
                     clearInterval(timer);
                     setTimeout(() => {
                         countdownScreen.style.display = 'none';
+                        countdownScreen.style.opacity = '1';
                         startActualGame();
                     }, 300);
                 }
-            }, 800);   // sedikit lebih cepat dari 900
+            }, 820);
         }
 
         function startActualGame() {
-            // FULL RESET
-            score = 0; caughtCoins = 0; level = 1; combo = 0; speed = 3.5; spawnInterval = 850;
-            items = []; particles = []; slowMotionUntil = 0;
+            // FULL RESET GAME
+            score = 0; 
+            caughtCoins = 0; 
+            level = 1; 
+            combo = 0; 
+            speed = 3.5; 
+            spawnInterval = 850;
+            items = []; 
+            particles = []; 
+            slowMotionUntil = 0;
 
             resizeCanvas();
             initLeaves(25);
+
+            // Pastikan menu benar-benar hilang
+            uiLayer.style.display = "none";
+            uiLayer.style.opacity = "0";
+
+            // Tampilkan game
             ingameUI.style.display = 'block';
             canvas.style.opacity = "1";
+            canvas.style.transition = "opacity 0.3s";
+
             bear.currentImg = bear.imgPending;
 
             isPlaying = true;
@@ -416,15 +450,12 @@
             update();           // mulai game loop
             addGameControls();
 
-            // === MUSIC SWITCH ===
-            menuMusic.pause();                    // matikan lagu menu
+            // Music switch
+            menuMusic.pause();
             menuMusic.currentTime = 0;
 
-
-            // Start background music
             bgMusic.currentTime = 0;
             bgMusic.play().catch(e => console.warn("Music play error:", e));
-            document.getElementById('gameFooter').style.display = 'none';
         }
 
         function addGameControls() {
@@ -645,16 +676,9 @@
             resizeCanvas();
             initTonConnect();
 
-            // Putar lagu menu otomatis
-            menuMusic.play().catch(e => console.warn("Menu music play error:", e));
-
-            // Sembunyikan UI dulu
-            uiLayer.style.display = "none";
-
-            // Tampilkan loading screen + preload
+            // Hanya tampilkan loading screen sekali
             loadingScreen.style.display = "flex";
             preloadAllAssets();
-
         });
     </script>
 </body>
