@@ -111,6 +111,11 @@
         <button onclick="window.location.href='dashboard.html'" style="background:none;border:none;padding:0;margin:10px auto;display:block;cursor:pointer;">
             <img src="assets/Dashboard.png" alt="Dashboard" style="width:85%;max-width:270px;height:auto;border-radius:12px;">
         </button>
+
+        <!-- FINAL SCORE CONTAINER (baru ditambahkan) -->
+        <div id="finalScoreContainer" style="display: none; text-align: center; margin-top: 30px;">
+            <p id="finalScoreEl" style="color: #f1c40f; font-size: 1.8rem; margin: 0; font-weight: bold; text-shadow: 0 0 10px rgba(0,0,0,0.9);"></p>
+        </div>
     </div>
 
     <!-- IN-GAME UI (hanya muncul saat main) -->
@@ -141,6 +146,11 @@
         const levelDisplay = document.getElementById("levelDisplay");
         const comboDisplay = document.getElementById("comboDisplay");
         const pauseBtn = document.getElementById("pauseBtn");
+        
+        // ELEMENTS BARU YANG DITAMBAHKAN (sebelumnya error)
+        const countdownScreen = document.getElementById("countdown-screen");
+        const finalScoreContainer = document.getElementById("finalScoreContainer");
+        const finalScoreEl = document.getElementById("finalScoreEl");
 
         let isPlaying = false, isPaused = false;
         let score = 0, caughtCoins = 0, level = 1, combo = 0, lastComboTime = 0;
@@ -190,11 +200,11 @@
         }
         window.addEventListener('resize', resizeCanvas);
 
-        // TON CONNECT
+        // TON CONNECT (SUDAH DIBENARKAN - constructor salah sebelumnya)
         async function initTonConnect() {
             if (tonConnectUI) return;
             try {
-                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                tonConnectUI = new TonConnectUI({
                     manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
                     buttonRootId: 'ton-connect-button',
                     uiPreferences: { theme: 'DARK', language: 'en' }
@@ -206,6 +216,10 @@
 
         // ====================== START GAME ======================
         startBtn.addEventListener("click", async () => {
+            // Reset tampilan menu saat mulai baru
+            titleEl.innerText = "BELLY BEARS";
+            finalScoreContainer.style.display = 'none';
+
             if (!tonConnectUI || !tonConnectUI.connected) {
                 alert("⚠️ Please connect your TON wallet first!");
                 return;
@@ -226,31 +240,7 @@
             setTimeout(() => {
                 clearInterval(interval);
                 document.getElementById("loading-screen").style.display = 'none';
-
-                // Reset game
-                score=0; caughtCoins=0; level=1; combo=0; speed=3.5; spawnInterval=850;
-                items=[]; particles=[]; slowMotionUntil=0;
-                resizeCanvas(); initLeaves(55);
-                ingameUI.style.display = 'block';
-                canvas.style.opacity = "1";
-                bear.currentImg = bear.imgPending;
-
-                isPlaying = true; isPaused = false;
-
-                spawnTimer = setInterval(spawnItem, spawnInterval);
-                update();
-
-                // Controls
-                canvas.ontouchmove = e => {
-                    if (!isPlaying || isPaused) return;
-                    bear.x = e.touches[0].clientX - bear.width/2;
-                    bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-                };
-                canvas.onmousemove = e => {
-                    if (!isPlaying || isPaused) return;
-                    bear.x = e.clientX - bear.width/2;
-                    bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-                };
+                startCountdown();           // ← sekarang pakai countdown (seperti yang diharapkan)
             }, 1300);
         });
 
@@ -271,51 +261,64 @@
         }
 
         function startActualGame() {
-            isPlaying = true;
-            score = 0;
-            caughtCoins = 0;
-            items = [];
-            resizeCanvas();
-            initLeaves(45);
+            // Reset semua variabel game
+            score = 0; 
+            caughtCoins = 0; 
+            level = 1; 
+            combo = 0; 
+            speed = 3.5; 
+            spawnInterval = 850;
+            items = []; 
+            particles = []; 
+            slowMotionUntil = 0;
 
-            canvas.style.opacity = "1";   // Tampilkan canvas
-
+            resizeCanvas(); 
+            initLeaves(55);
+            ingameUI.style.display = 'block';
+            canvas.style.opacity = "1";
             bear.currentImg = bear.imgPending;
 
+            isPlaying = true; 
+            isPaused = false;
+
             if (spawnTimer) clearInterval(spawnTimer);
-            spawnTimer = setInterval(spawnItem, 850);
+            spawnTimer = setInterval(spawnItem, spawnInterval);
             update();
             addGameControls();
         }
 
         function addGameControls() {
             canvas.addEventListener("touchmove", (e) => {
-                if (!isPlaying) return;
+                if (!isPlaying || isPaused) return;
                 bear.x = e.touches[0].clientX - (bear.width / 2);
                 bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
                 e.preventDefault();
             }, { passive: false });
 
             canvas.addEventListener("mousemove", (e) => {
-                if (!isPlaying) return;
+                if (!isPlaying || isPaused) return;
                 bear.x = e.clientX - (bear.width / 2);
                 bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
             });
         }
 
-        // ==================== DIFFICULTY PROGRESSION ====================
+        // ==================== DIFFICULTY PROGRESSION (DIBENARKAN) ====================
+        // Sebelumnya clearInterval + setInterval dilakukan SETIAP FRAME → spawn jadi gila
         function updateDifficulty() {
-            level = Math.floor(score / 200) + 1;
-            levelDisplay.textContent = `Level ${level}`;
+            const newLevel = Math.floor(score / 200) + 1;
+            levelDisplay.textContent = `Level ${newLevel}`;
 
-            const baseSpeed = 3.5;
-            speed = Math.min(baseSpeed + (level - 1) * 0.6, 9.5);
+            if (newLevel !== level) {
+                level = newLevel;
+                const baseSpeed = 3.5;
+                speed = Math.min(baseSpeed + (level - 1) * 0.6, 9.5);
 
-            const baseSpawn = 850;
-            spawnInterval = Math.max(baseSpawn - (level - 1) * 60, 380);
+                const baseSpawn = 850;
+                spawnInterval = Math.max(baseSpawn - (level - 1) * 60, 380);
 
-            if (spawnTimer) clearInterval(spawnTimer);
-            spawnTimer = setInterval(spawnItem, spawnInterval);
+                if (spawnTimer) clearInterval(spawnTimer);
+                spawnTimer = setInterval(spawnItem, spawnInterval);
+            }
         }
 
         function spawnItem() {
@@ -342,97 +345,101 @@
             }
         }
 
-
+        // ==================== MAIN GAME LOOP (DIBENARKAN) ====================
+        // Bug pause: loop mati total setelah pause. Sekarang RAF selalu jalan.
         function update() {
-            if (!isPlaying || isPaused) return;
+            if (!isPlaying) return;
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!isPaused) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Background
-            if (backgroundImg.complete) {
-                const scale = Math.max(canvas.width / backgroundImg.width, canvas.height / backgroundImg.height * 0.95);
-                ctx.drawImage(backgroundImg, (canvas.width - backgroundImg.width * scale)/2, 
-                              (canvas.height - backgroundImg.height * scale)/2, 
-                              backgroundImg.width * scale, backgroundImg.height * scale);
-            } else {
-                ctx.fillStyle = "#0f2a1f";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-
-            // Leaves
-            for (let leaf of leaves) { leaf.update(); leaf.draw(); }
-
-            // Items
-            const now = Date.now();
-            const isSlow = now < slowMotionUntil;
-            const currentSpeed = isSlow ? speed * 0.45 : speed;
-
-            for (let i = items.length - 1; i >= 0; i--) {
-                let item = items[i];
-                item.y += currentSpeed;
-
-                if (item.type === 'bomb') {
-                    ctx.drawImage(bombImg, item.x - 10, item.y - 10, item.size + 20, item.size + 20);
-                } else if (item.type === 'slow') {
-                    ctx.drawImage(slowPowerImg, item.x, item.y, item.size, item.size);
+                // Background
+                if (backgroundImg.complete) {
+                    const scale = Math.max(canvas.width / backgroundImg.width, canvas.height / backgroundImg.height * 0.95);
+                    ctx.drawImage(backgroundImg, (canvas.width - backgroundImg.width * scale)/2, 
+                                  (canvas.height - backgroundImg.height * scale)/2, 
+                                  backgroundImg.width * scale, backgroundImg.height * scale);
                 } else {
-                    ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+                    ctx.fillStyle = "#0f2a1f";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
 
-                // Collision with bear
-                if (item.y + 45 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
+                // Leaves
+                for (let leaf of leaves) { leaf.update(); leaf.draw(); }
+
+                // Items
+                const now = Date.now();
+                const isSlow = now < slowMotionUntil;
+                const currentSpeed = isSlow ? speed * 0.45 : speed;
+
+                for (let i = items.length - 1; i >= 0; i--) {
+                    let item = items[i];
+                    item.y += currentSpeed;
+
                     if (item.type === 'bomb') {
-                        score = Math.max(0, score - 45);
-                        combo = 0;
+                        ctx.drawImage(bombImg, item.x - 10, item.y - 10, item.size + 20, item.size + 20);
                     } else if (item.type === 'slow') {
-                        slowMotionUntil = now + 4200;
+                        ctx.drawImage(slowPowerImg, item.x, item.y, item.size, item.size);
                     } else {
-                        // Coin
-                        let multiplier = (now - lastComboTime < 1200 && combo >= 2) ? 1.5 : 1;
-                        score += Math.floor(15 * multiplier);
-                        caughtCoins++;
-                        combo++;
-                        lastComboTime = now;
-
-                        bear.currentImg = bear.imgEating;
-                        setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);
-
-                        createParticles(item.x + 20, item.y + 10);
+                        ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
                     }
-                    items.splice(i, 1);
-                    continue;
+
+                    // Collision with bear
+                    if (item.y + 45 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
+                        if (item.type === 'bomb') {
+                            score = Math.max(0, score - 45);
+                            combo = 0;
+                        } else if (item.type === 'slow') {
+                            slowMotionUntil = now + 4200;
+                        } else {
+                            // Coin
+                            let multiplier = (now - lastComboTime < 1200 && combo >= 2) ? 1.5 : 1;
+                            score += Math.floor(15 * multiplier);
+                            caughtCoins++;
+                            combo++;
+                            lastComboTime = now;
+
+                            bear.currentImg = bear.imgEating;
+                            setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);
+
+                            createParticles(item.x + 20, item.y + 10);
+                        }
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    if (item.y > canvas.height + 80) {
+                        if (item.type === 'coin') {
+                            gameOver();
+                            return;
+                        }
+                        items.splice(i, 1);
+                    }
                 }
 
-                if (item.y > canvas.height + 80) {
-                    if (item.type === 'coin') {
-                        gameOver();
-                        return;
-                    }
-                    items.splice(i, 1);
+                // Particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    particles[i].draw();
+                    if (particles[i].life <= 0) particles.splice(i, 1);
+                }
+
+                // Bear
+                ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
+
+                // UI Update
+                scoreDisplay.textContent = `Score: ${score}`;
+                updateDifficulty();
+
+                if (combo >= 3) {
+                    comboDisplay.style.display = 'block';
+                    comboDisplay.textContent = `Combo ×1.5`;
+                } else {
+                    comboDisplay.style.display = 'none';
                 }
             }
 
-            // Particles
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update();
-                particles[i].draw();
-                if (particles[i].life <= 0) particles.splice(i, 1);
-            }
-
-            // Bear
-            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
-
-            // UI Update
-            scoreDisplay.textContent = `Score: ${score}`;
-            updateDifficulty();
-
-            if (combo >= 3) {
-                comboDisplay.style.display = 'block';
-                comboDisplay.textContent = `Combo ×1.5`;
-            } else {
-                comboDisplay.style.display = 'none';
-            }
-
+            // RAF selalu dipanggil (fix pause loop mati)
             requestAnimationFrame(update);
         }
 
@@ -443,17 +450,18 @@
             // Kembalikan ke menu
             canvas.style.opacity = "0";
             setTimeout(() => {
+                ingameUI.style.display = 'none';           // ← sebelumnya tidak di-hide → overlap
                 uiLayer.style.display = "block";
                 uiLayer.style.opacity = "1";
                 titleEl.innerText = "GAME OVER!";
-                finalScoreEl.innerText = "Final Score: " + score;
-                finalScoreEl.classList.remove("hidden");
-            }, 300);
+                finalScoreContainer.style.display = 'block';
+                finalScoreEl.innerText = `Final Score: ${score}`;
 
-            saveScore(score, caughtCoins);
+                saveScore(score, caughtCoins);
+            }, 300);
         }
 
-        // Pause
+        // Pause (sudah benar, tapi loop update sekarang aman)
         pauseBtn.addEventListener('click', () => {
             isPaused = !isPaused;
             pauseBtn.textContent = isPaused ? '▶' : '⏸';
