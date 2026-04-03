@@ -356,7 +356,7 @@
 
             const rand = Math.random();
             let type = 'coin';
-            if (rand < 0.26) type = 'bomb';
+            if (rand < 0.25) type = 'bomb';
             else if (rand < 0.32) type = 'slow';
 
             items.push({
@@ -407,9 +407,9 @@
 
                     // DRAW
                     if (item.type === 'bomb') {
-                        ctx.drawImage(bombImg, item.x - 10, item.y - 10, item.size + 20, item.size + 20);
+                        ctx.drawImage(bombImg, item.x + 4, item.y + 4, 42, 42);
                     } else if (item.type === 'slow') {
-                        ctx.drawImage(slowPowerImg, item.x, item.y, item.size, item.size);
+                        ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 72, 72);
                     } else {
                         ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
                     }
