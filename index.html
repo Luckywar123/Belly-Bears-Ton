@@ -327,6 +327,7 @@
             // Start background music
             bgMusic.currentTime = 0;
             bgMusic.play().catch(e => console.warn("Music play error:", e));
+            document.getElementById('gameFooter').style.display = 'none';
         }
 
         function addGameControls() {
@@ -342,6 +343,7 @@
                 bear.x = e.clientX - (bear.width / 2);
                 bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
             });
+            document.getElementById('gameFooter').style.display = 'none';
         }
 
         // ==================== DIFFICULTY (HANYA UPDATE SAAT LEVEL NAIK) ====================
@@ -390,12 +392,7 @@
 
                 // Background
                 if (backgroundImg.complete) {
-                    const scale = Math.max(canvas.width / backgroundImg.width, canvas.height / backgroundImg.height * 0.95);
-                    ctx.drawImage(backgroundImg,
-                        (canvas.width - backgroundImg.width * scale) / 2,
-                        (canvas.height - backgroundImg.height * scale) / 2,
-                        backgroundImg.width * scale,
-                        backgroundImg.height * scale);
+                    ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
                 } else {
                     ctx.fillStyle = "#0f2a1f";
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -482,6 +479,7 @@
 
         function gameOver() {
             bgMusic.pause();
+            document.getElementById('gameFooter').style.display = 'block';
 
             isPlaying = false;
             if (spawnTimer) clearInterval(spawnTimer);
@@ -543,7 +541,7 @@
     </script>
 </body>
 </html>
-<footer style="position: fixed; bottom: 10px; width: 100%; text-align: center; color: #888; font-size: 0.9rem; z-index: 50;">
+<footer id="gameFooter" style="position: fixed; bottom: 10px; width: 100%; text-align: center; color: #888; font-size: 0.9rem; z-index: 50; display: block;">
     &copy; 2024 Belly Bears. All rights reserved.
     
     <div style="position: absolute; bottom: 20px; width: 100%; text-align: center; font-size: 10px; color: #888; pointer-events: auto;">
