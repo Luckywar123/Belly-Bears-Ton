@@ -12,6 +12,18 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 
+    <link rel="preload" as="image" href="assets/Background-game.png">
+    <link rel="preload" as="image" href="assets/Beruang-pending.png">
+    <link rel="preload" as="image" href="assets/coin.png">
+    <link rel="preload" as="image" href="assets/start-eating.png">
+    <link rel="preload" as="bgm" href="assets/music-game.m4a">
+    <link rel="preload" as="bgm" href="assets/bgm.m4a">
+    <link rel="preload" as="bgm" href="assets/jam-bgm.m4a">
+    <link rel="preload" as="audio" href="assets/suara-makan.m4a">
+    <link rel="preload" as="audio" href="assets/bom-bgm.m4a">
+    
+
+
     <style>
         body {
             margin: 0;
@@ -302,18 +314,20 @@
 
         function assetLoaded() {
             loadedAssets++;
-            const percent = Math.floor((loadedAssets / totalAssets) * 100);
+            const percent = Math.min(100, Math.floor((loadedAssets / totalAssets) * 100));
             loadingBar.style.width = percent + "%";
             loadingText.textContent = `Loading assets... ${percent}%`;
 
             if (loadedAssets >= totalAssets) {
                 setTimeout(() => {
-                    loadingScreen.style.display = "none";
-                    uiLayer.style.display = "block";
-                    uiLayer.style.opacity = "1";
+                    loadingScreen.style.opacity = "0";
+                    setTimeout(() => {
+                        loadingScreen.style.display = "none";
+                        uiLayer.style.display = "block";
+                        uiLayer.style.opacity = "1";
 
-                    // Mainkan menu music setelah semua asset siap
-                    menuMusic.play().catch(e => console.warn("Menu music blocked (normal di mobile):", e));
+                        menuMusic.play().catch(() => {});
+                    }, 300);
                 }, 400);
             }
         }
@@ -337,48 +351,49 @@
 
         // ====================== START GAME ======================
         startBtn.addEventListener("click", async () => {
-            // RESET MENU
-            titleEl.innerText = "BELLY BEARS";
-            finalScoreContainer.style.display = 'none';
-
             if (!tonConnectUI || !tonConnectUI.connected) {
                 alert("⚠️ Please connect your TON wallet first!");
                 return;
             }
 
+            // Reset menu text
+            titleEl.innerText = "BELLY BEARS";
+            finalScoreContainer.style.display = 'none';
+
+            // Sembunyikan menu utama
             uiLayer.style.opacity = "0";
-            setTimeout(() => { uiLayer.style.display = "none"; }, 400);
+            setTimeout(() => { 
+                uiLayer.style.display = "none"; 
+            }, 400);
 
-            document.getElementById("loading-screen").style.display = 'flex';
-
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += Math.random() * 40;
-                if (progress > 100) progress = 100;
-                document.getElementById('loading-bar').style.width = progress + '%';
-            }, 70);
-
-            setTimeout(() => {
-                clearInterval(interval);
-                document.getElementById("loading-screen").style.display = 'none';
-                startCountdown();   // ← pakai countdown seperti yang kamu mau
-            }, 1300);
+            // Langsung ke countdown (tanpa loading screen lagi)
+            startCountdown();
         });
 
         function startCountdown() {
             countdownScreen.style.display = 'flex';
             let count = 3;
+            countdownScreen.style.fontSize = '140px';
+
             const timer = setInterval(() => {
                 countdownScreen.textContent = count;
-                countdownScreen.style.transform = 'scale(1.6)';
-                setTimeout(() => { countdownScreen.style.transform = 'scale(1)'; }, 180);
+                countdownScreen.style.transform = 'scale(1.8)';
+                countdownScreen.style.opacity = '1';
+
+                setTimeout(() => {
+                    countdownScreen.style.transform = 'scale(0.6)';
+                    countdownScreen.style.opacity = '0';
+                }, 400);
+
                 count--;
                 if (count < 0) {
                     clearInterval(timer);
-                    countdownScreen.style.display = 'none';
-                    startActualGame();
+                    setTimeout(() => {
+                        countdownScreen.style.display = 'none';
+                        startActualGame();
+                    }, 300);
                 }
-            }, 900);
+            }, 800);   // sedikit lebih cepat dari 900
         }
 
         function startActualGame() {
