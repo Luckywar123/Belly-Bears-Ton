@@ -597,12 +597,14 @@
 
         // Fungsi tambahan untuk tombol
         function restartGame() {
-            // Hapus overlay
+            // Hapus overlay Game Over
             const overlay = document.getElementById('gameOverOverlay');
             if (overlay) overlay.remove();
 
-            // Mulai game lagi
-            startActualGame();
+            // Tambah delay 1 detik sebelum mulai game lagi
+            setTimeout(() => {
+                startActualGame();
+            }, 1000);
         }
 
         function backToMenu() {
