@@ -47,17 +47,9 @@
             display: none; 
         }
         #countdown-screen {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.92);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            font-size: 140px;
-            color: #f39c12;
-            font-weight: bold;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.92); display: none; justify-content: center; align-items: center;
+            z-index: 100; font-size: 140px; color: #f39c12; font-weight: bold;
             text-shadow: 0 0 40px #f39c12;
         }
     </style>
@@ -288,7 +280,10 @@
                 count--;
                 if (count < 0) {
                     clearInterval(timer);
-                    setTimeout(startActualGame, 300);
+                    setTimeout(() => {
+                        countdownScreen.style.display = 'none';   // ← INI YANG DITAMBAHKAN
+                        startActualGame();
+                    }, 350);
                 }
             }, 820);
         }
@@ -459,7 +454,7 @@
 
             // === SIMPAN SCORE KE DATABASE ===
             saveScore(score, caughtCoins);
-            
+
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 600);
@@ -471,10 +466,14 @@
         });
 
         // INIT GAME
+        // INIT GAME - dengan delay setelah preload
         document.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
             preloadAllAssets(() => {
-                startCountdown();   // langsung mulai countdown setelah preload selesai
+                // Tambah delay 800ms setelah preload selesai
+                setTimeout(() => {
+                    startCountdown();
+                }, 800);
             });
         });
     </script>
