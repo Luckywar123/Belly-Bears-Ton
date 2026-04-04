@@ -519,14 +519,21 @@
         }
 
         function gameOver() {
+            // HENTIKAN SEMUA AKTIVITAS GAME
             bgMusic.pause();
             bgMusic.currentTime = 0;
 
             isPlaying = false;
-            if (spawnTimer) clearInterval(spawnTimer);
+            if (spawnTimer) {
+                clearInterval(spawnTimer);
+                spawnTimer = null;
+            }
 
             // Simpan score ke database
             saveScore(score, caughtCoins);
+
+            // Hentikan game loop sepenuhnya
+            // (kita tidak memanggil requestAnimationFrame lagi)
 
             // Tampilkan Game Over Screen
             canvas.style.opacity = "0";
@@ -534,22 +541,43 @@
             setTimeout(() => {
                 // Buat overlay Game Over
                 const gameOverHTML = `
-                    <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:50;display:flex;flex-direction:column;justify-content:center;align-items:center;color:white;text-align:center;">
-                        <h1 style="font-size:3rem;color:#f39c12;margin:0;">GAME OVER</h1>
-                        <p style="font-size:1.8rem;margin:20px 0 10px 0;">Final Score</p>
-                        <p style="font-size:3.5rem;font-weight:bold;color:#f1c40f;margin:0;">${score}</p>
-                        <p style="margin-top:40px;font-size:1.2rem;">Coins Caught: ${caughtCoins}</p>
-                        <button onclick="window.location.href='index.html'" 
-                                style="margin-top:50px;padding:15px 40px;font-size:1.3rem;background:#f39c12;color:black;border:none;border-radius:12px;cursor:pointer;">
-                            BACK TO MENU
-                        </button>
+                    <div id="gameOverOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:100;display:flex;flex-direction:column;justify-content:center;align-items:center;color:white;text-align:center;">
+                        <h1 style="font-size:3.2rem;color:#f39c12;margin:0 0 20px 0;">GAME OVER</h1>
+                        <p style="font-size:1.6rem;margin:10px 0;">Final Score</p>
+                        <p style="font-size:4rem;font-weight:bold;color:#f1c40f;margin:0 0 30px 0;">${score}</p>
+                        <p style="font-size:1.3rem;margin-bottom:40px;">Coins Caught: ${caughtCoins}</p>
+                        
+                        <div style="display:flex;gap:20px;">
+                            <button onclick="restartGame()" 
+                                    style="padding:14px 32px;font-size:1.2rem;background:#f39c12;color:black;border:none;border-radius:12px;cursor:pointer;">
+                                PLAY AGAIN
+                            </button>
+                            <button onclick="backToMenu()" 
+                                    style="padding:14px 32px;font-size:1.2rem;background:#555;color:white;border:none;border-radius:12px;cursor:pointer;">
+                                BACK TO MENU
+                            </button>
+                        </div>
                     </div>
                 `;
 
                 const overlay = document.createElement('div');
                 overlay.innerHTML = gameOverHTML;
                 document.body.appendChild(overlay.firstElementChild);
-            }, 400);
+            }, 300);
+        }
+
+        // Fungsi tambahan untuk tombol
+        function restartGame() {
+            // Hapus overlay
+            const overlay = document.getElementById('gameOverOverlay');
+            if (overlay) overlay.remove();
+
+            // Mulai game lagi
+            startActualGame();
+        }
+
+        function backToMenu() {
+            window.location.href = 'index.html';
         }
 
         pauseBtn.addEventListener('click', () => {
