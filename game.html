@@ -40,7 +40,7 @@
             z-index: 20;
         }
         #scoreDisplay { top: 20px; left: 25px; }
-        #levelDisplay { top: 20px; right: 20px; color: #f1c40f; middle: 0; }
+        #levelDisplay { top: 20px; right: 75px; color: #f1c40f;  }
         #comboDisplay { 
             top: 65px; left: 25px; 
             font-size: 20px; color: #ffeb3b; 
@@ -444,22 +444,14 @@
 
 
         function startActualGameDirect() {
-            // Pastikan tidak ada popup lama
-            resetGameState();
-            const oldPopup = document.querySelector('div[style*="Touch the Screen"]');
-            if (oldPopup) oldPopup.remove();
+            resetGameState();                    // bersihkan semua
 
-            countdownScreen.style.display = 'none';
-
-            resetGameState();           // reset lagi untuk aman
             countdownScreen.style.display = 'none';
             ingameUI.style.display = 'block';
             canvas.style.opacity = "1";
 
-
             resizeCanvas();
             initLeaves(25);
-
 
             isPlaying = true;
             isPaused = false;
@@ -468,7 +460,7 @@
             bear.currentImg = bear.imgPending;
 
             update();
-            addGameControls();   // ini tetap dipanggil agar bear bisa digerakkan
+            addGameControls();
         }
 
 
@@ -549,14 +541,20 @@
         }
 
         function update() {
-            if (!isPlaying || isPaused) {
-                if (isPlaying && isPaused) {
-                    return;
-                }
-                requestAnimationFrame(update); // tetap lanjut supaya pause responsive
+            // Jika game sudah berhenti total → stop RAF
+            if (!isPlaying) {
                 return;
             }
 
+            // PAUSE: tetap render frame terakhir supaya tidak freeze
+            if (isPaused) {
+                // Render ulang frame terakhir (supaya pause terlihat bagus)
+                drawPauseFrame();
+                requestAnimationFrame(update);
+                return;
+            }
+
+            // ==================== NORMAL GAME UPDATE ====================
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (backgroundImg.complete) {
@@ -583,11 +581,9 @@
                 const itemRight = item.x + item.size;
                 const itemBottom = item.y + item.size;
 
-                if (itemBottom > bear.y &&
-                        item.y < bear.y + bear.height &&
-                        itemRight > bear.x &&
-                        item.x < bear.x + bear.width
-                ) {
+                if (itemBottom > bear.y && item.y < bear.y + bear.height &&
+                    itemRight > bear.x && item.x < bear.x + bear.width) {
+
                     if (item.type === 'bomb') {
                         score = Math.max(0, score - 45);
                         combo = 0;
@@ -624,12 +620,13 @@
                 }
             }
 
+            // Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 particles[i].update();
                 particles[i].draw();
                 if (particles[i].life <= 0) particles.splice(i, 1);
-                if (particles.length > 25) particles.length = 25
             }
+            if (particles.length > 25) particles.length = 25;
 
             ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
 
@@ -644,6 +641,33 @@
             }
 
             requestAnimationFrame(update);
+        }
+
+        // Fungsi helper untuk render saat pause
+        function drawPauseFrame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (backgroundImg.complete) {
+                ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = "#0f2a1f";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            leaves.forEach(leaf => leaf.draw());  // hanya draw, tidak update
+
+            // Draw items tanpa gerak
+            items.forEach(item => {
+                if (item.type === 'bomb') ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
+                else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
+                else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+            });
+
+            particles.forEach(p => p.draw());
+
+            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
+
+            scoreDisplay.textContent = `Score: ${score}`;
         }
 
         function gameOver() {
@@ -695,9 +719,6 @@
             // Hapus semua overlay yang mungkin masih ada
             const overlay = document.getElementById('gameOverOverlay');
             if (overlay) overlay.remove();
-
-            // Reset state game
-            resetGameState();
 
             // Langsung mulai game tanpa countdown dan tanpa "Touch the Screen"
             setTimeout(() => {
