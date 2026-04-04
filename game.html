@@ -199,15 +199,15 @@
             if (audioUnlocked) return;
             audioUnlocked = true;
 
-            // Force unlock semua audio
+            console.log("✅ Audio unlocked");
+
+            // Unlock semua audio
             [bgMusic, eatSound, bombSound, jamMusic].forEach(audio => {
                 audio.play().then(() => {
                     audio.pause();
                     audio.currentTime = 0;
                 }).catch(() => {});
             });
-
-            console.log("✅ Audio unlocked");
         }
 
         // ====================== SAVE SCORE ======================
@@ -335,21 +335,40 @@
             update();
             addGameControls();
 
-            // Mainkan bgMusic setelah audio di-unlock
-            if (audioUnlocked) {
+            // Auto unlock fallback + play bgMusic
+            setTimeout(() => {
+                unlockAudio();
                 bgMusic.currentTime = 0;
                 bgMusic.play().catch(() => {});
-            }
+            }, 500);   // delay 500ms setelah game mulai
         }
 
         function addGameControls() {
-            const unlockOnce = (e) => {
+            let unlocked = true;
+
+            // Unlock audio di sentuhan pertama (touchstart)
+            const unlockHandler = () => {
+                if (unlocked) return;
+                unlocked = true;
+
                 unlockAudio();
-                canvas.removeEventListener('touchstart', unlockOnce);
+
+                // Mainkan musik latar setelah unlock berhasil
+                setTimeout(() => {
+                    bgMusic.currentTime = 0;
+                    bgMusic.play().catch(err => {
+                        console.warn("bgMusic play failed:", err);
+                    });
+                }, 300);
+
+                // Hapus listener setelah unlock (supaya tidak dipanggil berulang)
+                canvas.removeEventListener('touchstart', unlockHandler);
             };
 
-            canvas.addEventListener("touchstart", unlockOnce, { once: true });
+            // Listener untuk unlock audio
+            canvas.addEventListener("touchstart", unlockHandler, { once: true });
 
+            // Listener untuk menggerakkan beruang (tetap touchmove)
             canvas.addEventListener("touchmove", (e) => {
                 if (!isPlaying || isPaused) return;
                 bear.x = e.touches[0].clientX - (bear.width / 2);
