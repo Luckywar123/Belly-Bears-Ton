@@ -525,6 +525,7 @@
 
             // Unlock + play music di sentuhan pertama
             canvas.addEventListener("touchstart", unlockAndPlay, { once: true });
+            canvas.addEventListener("click", unlockAndPlay, { once: true });
 
             // Gerakkan beruang
             canvas.addEventListener("touchmove", (e) => {
