@@ -56,6 +56,16 @@
 </head>
 <body>
 
+    <!-- LOADING SCREEN -->
+    <div id="loading-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#1a1a1a;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:200;">
+        <img src="assets/ICON.png" alt="Belly Bears" style="width:130px;height:130px;margin-bottom:25px;">
+        <h2 style="color:#f39c12;margin:0 0 20px 0;font-size:1.8rem;">Loading Assets...</h2>
+        <div style="width:220px;height:10px;background:#333;border-radius:9999px;overflow:hidden;">
+            <div id="loading-bar" style="width:0%;height:100%;background:linear-gradient(to right,#f39c12,#f1c40f);transition:width 0.4s;"></div>
+        </div>
+        <p id="loading-text" style="color:#aaa;margin-top:12px;font-size:1rem;">Preparing game...</p>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <!-- IN-GAME UI -->
@@ -256,8 +266,26 @@
             let loaded = 0;
             const total = images.length + audios.length;
 
+            const loadingBar = document.getElementById("loading-bar");
+            const loadingText = document.getElementById("loading-text");
+
             const checkLoaded = () => {
-                if (++loaded >= total) callback();
+                loaded++;
+                const percent = Math.floor((loaded / total) * 100);
+                loadingBar.style.width = percent + "%";
+                loadingText.textContent = `Loading assets... ${percent}%`;
+
+                if (loaded >= total) {
+                    setTimeout(() => {
+                        // Sembunyikan loading screen dengan animasi
+                        const loadingScreen = document.getElementById("loading-screen");
+                        loadingScreen.style.opacity = "0";
+                        setTimeout(() => {
+                            loadingScreen.style.display = "none";
+                            callback();
+                        }, 400);
+                    }, 300);
+                }
             };
 
             images.forEach(item => {
@@ -353,41 +381,42 @@
 
             update();
             addGameControls();
-
-            // Auto unlock fallback + play bgMusic
-            setTimeout(() => {
-                unlockAudio();
-                bgMusic.currentTime = 0;
-                bgMusic.play().catch(e => console.warn("bgMusic failed:", e));
-            }, 800);
         }
 
         function addGameControls() {
-            let unlocked = true;
+            let audioUnlocked = false;
 
-            // Unlock audio di sentuhan pertama (touchstart)
-            const unlockHandler = () => {
-                if (unlocked) return;
-                unlocked = true;
+            const unlockAndPlay = () => {
+                if (audioUnlocked) return;
+                audioUnlocked = true;
 
-                unlockAudio();
+                console.log("✅ User touched screen - unlocking audio");
 
-                // Mainkan musik latar setelah unlock berhasil
+                // Unlock semua audio
+                [bgMusic, eatSound, bombSound, jamMusic].forEach(audio => {
+                    audio.play().then(() => {
+                        audio.pause();
+                        audio.currentTime = 0;
+                    }).catch(() => {});
+                });
+
+                // Mainkan background music
                 setTimeout(() => {
                     bgMusic.currentTime = 0;
                     bgMusic.play().catch(err => {
-                        console.warn("bgMusic play failed:", err);
+                        console.warn("bgMusic first play failed, retrying...", err);
+                        // Retry sekali lagi
+                        setTimeout(() => bgMusic.play().catch(() => {}), 800);
                     });
                 }, 300);
 
-                // Hapus listener setelah unlock (supaya tidak dipanggil berulang)
-                canvas.removeEventListener('touchstart', unlockHandler);
+                canvas.removeEventListener('touchstart', unlockAndPlay);
             };
 
-            // Listener untuk unlock audio
-            canvas.addEventListener("touchstart", unlockHandler, { once: true });
+            // Unlock + play music di sentuhan pertama
+            canvas.addEventListener("touchstart", unlockAndPlay, { once: true });
 
-            // Listener untuk menggerakkan beruang (tetap touchmove)
+            // Gerakkan beruang
             canvas.addEventListener("touchmove", (e) => {
                 if (!isPlaying || isPaused) return;
                 bear.x = e.touches[0].clientX - (bear.width / 2);
@@ -588,10 +617,16 @@
         // INIT GAME
         document.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
+
+            // Tampilkan loading screen
+            const loadingScreen = document.getElementById("loading-screen");
+            loadingScreen.style.display = "flex";
+            loadingScreen.style.opacity = "1";
+
             preloadAllAssets(() => {
                 setTimeout(() => {
                     startCountdown();
-                }, 800);
+                }, 600);
             });
         });
     </script>
