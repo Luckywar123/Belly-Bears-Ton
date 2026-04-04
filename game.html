@@ -304,12 +304,31 @@
                     clearInterval(timer);
                     setTimeout(() => {
                         countdownScreen.style.display = 'none';
-                        countdownScreen.style.opacity = '1';
-                        // Delay sebelum game mulai
-                        setTimeout(startActualGame, 600);
-                    }, 550);
+
+                        // Tampilkan Touch to Start Popup
+                        const touchPopup = document.createElement('div');
+                        touchPopup.style.cssText = `
+                            position:fixed; top:0; left:0; width:100%; height:100%; 
+                            background:rgba(0,0,0,0.75); z-index:90; display:flex; 
+                            flex-direction:column; justify-content:center; align-items:center;
+                            color:white; text-align:center;
+                        `;
+                        touchPopup.innerHTML = `
+                            <div style="font-size:2.2rem;margin-bottom:30px;">Touch the Screen</div>
+                            <div style="font-size:1.4rem;opacity:0.9;">to start playing</div>
+                            <div style="margin-top:60px;font-size:4rem;opacity:0.6;">⏸</div>
+                        `;
+                        document.body.appendChild(touchPopup);
+
+                        // Klik/touch popup → mulai game
+                        touchPopup.addEventListener('touchstart', () => {
+                            touchPopup.remove();
+                            startActualGame();
+                        }, { once: true });
+
+                    }, 400);
                 }
-            }, 950);
+            }, 700);
         }
 
         function startActualGame() {
@@ -339,8 +358,8 @@
             setTimeout(() => {
                 unlockAudio();
                 bgMusic.currentTime = 0;
-                bgMusic.play().catch(() => {});
-            }, 500);   // delay 500ms setelah game mulai
+                bgMusic.play().catch(e => console.warn("bgMusic failed:", e));
+            }, 800);
         }
 
         function addGameControls() {
@@ -506,14 +525,31 @@
             isPlaying = false;
             if (spawnTimer) clearInterval(spawnTimer);
 
-            canvas.style.opacity = "0";
-
-            // === SIMPAN SCORE KE DATABASE ===
+            // Simpan score ke database
             saveScore(score, caughtCoins);
 
+            // Tampilkan Game Over Screen
+            canvas.style.opacity = "0";
+
             setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 600);
+                // Buat overlay Game Over
+                const gameOverHTML = `
+                    <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:50;display:flex;flex-direction:column;justify-content:center;align-items:center;color:white;text-align:center;">
+                        <h1 style="font-size:3rem;color:#f39c12;margin:0;">GAME OVER</h1>
+                        <p style="font-size:1.8rem;margin:20px 0 10px 0;">Final Score</p>
+                        <p style="font-size:3.5rem;font-weight:bold;color:#f1c40f;margin:0;">${score}</p>
+                        <p style="margin-top:40px;font-size:1.2rem;">Coins Caught: ${caughtCoins}</p>
+                        <button onclick="window.location.href='index.html'" 
+                                style="margin-top:50px;padding:15px 40px;font-size:1.3rem;background:#f39c12;color:black;border:none;border-radius:12px;cursor:pointer;">
+                            BACK TO MENU
+                        </button>
+                    </div>
+                `;
+
+                const overlay = document.createElement('div');
+                overlay.innerHTML = gameOverHTML;
+                document.body.appendChild(overlay.firstElementChild);
+            }, 400);
         }
 
         pauseBtn.addEventListener('click', () => {
