@@ -201,6 +201,40 @@
             bear.y = canvas.height - 165;
         }
 
+        // ====================== SAVE SCORE ======================
+        async function saveScore(finalScore, coinsCaught) {
+            if (!tonConnectUI || !tonConnectUI.connected) return;
+
+            const address = tonConnectUI.account.address;
+            const tgUser = tg.initDataUnsafe?.user;
+            const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
+
+            try {
+                const { data: current } = await sb
+                    .from('highscores')
+                    .select('best_score, total_coins, games_played')
+                    .eq('wallet_address', address)
+                    .maybeSingle();
+
+                const newBest = Math.max(current?.best_score || 0, finalScore);
+                const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
+                const newGames = (current?.games_played || 0) + 1;
+
+                await sb.from('highscores').upsert({
+                    wallet_address: address,
+                    username: username,
+                    best_score: newBest,
+                    total_coins: newTotalCoins,
+                    games_played: newGames,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'wallet_address' });
+
+                console.log("✅ Score saved to database");
+            } catch (err) {
+                console.error("Save score error:", err);
+            }
+        }
+
         // Preload Assets
         function preloadAllAssets(callback) {
             const images = [
@@ -423,6 +457,9 @@
 
             canvas.style.opacity = "0";
 
+            // === SIMPAN SCORE KE DATABASE ===
+            saveScore(score, caughtCoins);
+            
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 600);
