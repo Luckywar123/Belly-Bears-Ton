@@ -361,10 +361,15 @@
             titleEl.innerText = "BELLY BEARS";
             finalScoreContainer.style.display = 'none';
 
+            // Hilangkan menu dengan tegas
+            uiLayer.style.transition = "opacity 0.5s ease-out";
             uiLayer.style.opacity = "0";
-            setTimeout(() => { uiLayer.style.display = "none"; }, 480);
 
-            startCountdown();
+            setTimeout(() => {
+                uiLayer.style.display = "none";
+                uiLayer.style.opacity = "1";   // reset untuk next time
+                startCountdown();
+            }, 520);
         });
 
         function startCountdown() {
@@ -383,28 +388,28 @@
                 count--;
                 if (count < 0) {
                     clearInterval(timer);
-                    setTimeout(() => {
-                        countdownScreen.style.display = 'none';
-                        startActualGame();
-                    }, 300);
+                    setTimeout(startActualGame, 300);
                 }
             }, 820);
         }
 
         function startActualGame() {
             // Reset game
-            score = caughtCoins = combo = 0; level = 1; speed = 3.5; spawnInterval = 850;
+            score = caughtCoins = combo = 0;
+            level = 1; speed = 3.5; spawnInterval = 850;
             items = []; particles = []; slowMotionUntil = 0;
 
             resizeCanvas();
             initLeaves(25);
 
-            uiLayer.style.display = "none";   // PASTI HILANG
+            // PASTIKAN MENU MATI & GAME HIDUP
+            uiLayer.style.display = "none";
             ingameUI.style.display = 'block';
             canvas.style.opacity = "1";
 
             bear.currentImg = bear.imgPending;
-            isPlaying = true; isPaused = false;
+            isPlaying = true;
+            isPaused = false;
 
             if (spawnTimer) clearInterval(spawnTimer);
             spawnTimer = setInterval(spawnItem, spawnInterval);
@@ -412,10 +417,11 @@
             update();
             addGameControls();
 
-            // === MUSIC SWITCH ===
-            menuMusic.pause(); menuMusic.currentTime = 0;
+            // Music switch
+            menuMusic.pause();
+            menuMusic.currentTime = 0;
             bgMusic.currentTime = 0;
-            bgMusic.play().catch(() => console.warn("bgMusic blocked"));
+            bgMusic.play().catch(() => {});
         }
 
         function addGameControls() {
@@ -525,6 +531,7 @@
             if (spawnTimer) clearInterval(spawnTimer);
 
             canvas.style.opacity = "0";
+
             setTimeout(() => {
                 ingameUI.style.display = 'none';
                 uiLayer.style.display = "block";
@@ -568,13 +575,18 @@
             }
         }
 
-        // INIT
+        // ====================== INIT ======================
         document.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
             initTonConnect();
+            
+            // PASTIKAN IN-GAME UI MATI DI AWAL
+            ingameUI.style.display = 'none';
+            
             loadingScreen.style.display = "flex";
             preloadAllAssets();
         });
+        window.addEventListener('resize', resizeCanvas);
     </script>
 </body>
 </html>
