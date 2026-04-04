@@ -265,27 +265,32 @@
         // ====================== START GAME ======================
         function startCountdown() {
             countdownScreen.style.display = 'flex';
+            countdownScreen.style.opacity = '1';
             let count = 3;
 
             const timer = setInterval(() => {
                 countdownScreen.textContent = count;
-                countdownScreen.style.transform = 'scale(1.8)';
+                countdownScreen.style.transform = 'scale(1.7)';
                 countdownScreen.style.opacity = '1';
 
+                // Animasi keluar yang lebih halus
                 setTimeout(() => {
-                    countdownScreen.style.transform = 'scale(0.4)';
+                    countdownScreen.style.transform = 'scale(0.3)';
                     countdownScreen.style.opacity = '0';
-                }, 380);
+                }, 450);
 
                 count--;
                 if (count < 0) {
                     clearInterval(timer);
                     setTimeout(() => {
-                        countdownScreen.style.display = 'none';   // ← INI YANG DITAMBAHKAN
-                        startActualGame();
-                    }, 350);
+                        countdownScreen.style.display = 'none';
+                        countdownScreen.style.opacity = '1';
+                        
+                       
+                        setTimeout(startActualGame, 700);
+                    }, 500);
                 }
-            }, 820);
+            }, 900);   
         }
 
         function startActualGame() {
@@ -466,11 +471,9 @@
         });
 
         // INIT GAME
-        // INIT GAME - dengan delay setelah preload
         document.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
             preloadAllAssets(() => {
-                // Tambah delay 800ms setelah preload selesai
                 setTimeout(() => {
                     startCountdown();
                 }, 800);
