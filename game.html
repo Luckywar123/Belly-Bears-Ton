@@ -481,6 +481,7 @@
                 particles[i].update();
                 particles[i].draw();
                 if (particles[i].life <= 0) particles.splice(i, 1);
+                if (particles.length > 25) particles.length = 25
             }
 
             ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
