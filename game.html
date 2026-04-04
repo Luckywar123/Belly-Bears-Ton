@@ -396,9 +396,14 @@
             isPaused = false;
             pauseBtn.textContent = '⏸';
             
-            // Hapus semua overlay game over yang mungkin masih ada
+            // Hapus Game Over Overlay
             const existingOverlay = document.getElementById('gameOverOverlay');
             if (existingOverlay) existingOverlay.remove();
+
+            // === PENTING: Hapus Touch Popup yang mungkin masih ada ===
+            const touchPopups = document.querySelectorAll('div[style*="Touch the Screen"], div[style*="touch the screen"]');
+            touchPopups.forEach(p => p.remove());
+            
         }
 
         function startActualGame() {
@@ -426,6 +431,34 @@
             update();
             addGameControls();
         }
+
+
+        function startActualGameDirect() {
+            // Pastikan tidak ada popup lama
+            const oldPopup = document.querySelector('div[style*="Touch the Screen"]');
+            if (oldPopup) oldPopup.remove();
+
+            countdownScreen.style.display = 'none';
+
+            resetGameState();           // reset lagi untuk aman
+
+            resizeCanvas();
+            initLeaves(25);
+
+            ingameUI.style.display = 'block';
+            canvas.style.opacity = "1";
+
+            isPlaying = true;
+            isPaused = false;
+
+            spawnTimer = setInterval(spawnItem, spawnInterval);
+            bear.currentImg = bear.imgPending;
+
+            update();
+            addGameControls();   // ini tetap dipanggil agar bear bisa digerakkan
+        }
+
+
 
         function addGameControls() {
             let audioUnlocked = false;
@@ -646,15 +679,17 @@
 
         // Fungsi tambahan untuk tombol
         function restartGame() {
-            // Hapus overlay Game Over
+            // Hapus semua overlay yang mungkin masih ada
             const overlay = document.getElementById('gameOverOverlay');
             if (overlay) overlay.remove();
+
+            // Reset state game
             resetGameState();
 
-            // Tambah delay 1 detik sebelum mulai game lagi
+            // Langsung mulai game tanpa countdown dan tanpa "Touch the Screen"
             setTimeout(() => {
-                startActualGame();
-            }, 1000);
+                startActualGameDirect();   // kita buat fungsi baru
+            }, 200);
         }
 
         function backToMenu() {
