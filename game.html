@@ -359,6 +359,48 @@
             }, 700);
         }
 
+        function resetGameState() {
+            // Hentikan semua timer
+            if (spawnTimer) {
+                clearInterval(spawnTimer);
+                spawnTimer = null;
+            }
+
+            // Hentikan RAF loop dengan flag
+            isPlaying = false;
+            
+            // Reset semua variabel game
+            score = 0;
+            caughtCoins = 0;
+            combo = 0;
+            lastComboTime = 0;
+            level = 1;
+            speed = 3.5;
+            spawnInterval = 850;
+            slowMotionUntil = 0;
+            
+            items = [];
+            particles = [];
+            // leaves boleh dibiarkan atau di-init ulang
+
+            // Reset bear
+            bear.currentImg = bear.imgPending;
+            bear.x = canvas.width / 2 - bear.width / 2;
+
+            // Reset UI
+            scoreDisplay.textContent = "Score: 0";
+            levelDisplay.textContent = "Level 1";
+            comboDisplay.style.display = 'none';
+            
+            // Pastikan pause off
+            isPaused = false;
+            pauseBtn.textContent = '⏸';
+            
+            // Hapus semua overlay game over yang mungkin masih ada
+            const existingOverlay = document.getElementById('gameOverOverlay');
+            if (existingOverlay) existingOverlay.remove();
+        }
+
         function startActualGame() {
             countdownScreen.style.display = 'none';
 
@@ -366,19 +408,21 @@
             level = 1; speed = 3.5; spawnInterval = 850;
             items = []; particles = []; slowMotionUntil = 0;
 
+            if (isPlaying) return;
+
+            resetGameState();   // panggil reset di sini juga
+
             resizeCanvas();
             initLeaves(25);
 
             ingameUI.style.display = 'block';
             canvas.style.opacity = "1";
 
-            bear.currentImg = bear.imgPending;
             isPlaying = true;
             isPaused = false;
 
-            if (spawnTimer) clearInterval(spawnTimer);
             spawnTimer = setInterval(spawnItem, spawnInterval);
-
+            bear.currentImg = bear.imgPending;
             update();
             addGameControls();
         }
@@ -459,9 +503,11 @@
         }
 
         function update() {
-            if (!isPlaying) return;
-            if (isPaused) {
-                requestAnimationFrame(update);
+            if (!isPlaying || isPaused) {
+                if (isPlaying && isPaused) {
+                    // optional: draw pause screen
+                }
+                requestAnimationFrame(update); // tetap lanjut supaya pause responsive
                 return;
             }
 
@@ -608,7 +654,7 @@
             // Hapus overlay Game Over
             const overlay = document.getElementById('gameOverOverlay');
             if (overlay) overlay.remove();
-            
+            resetGameState();
 
             // Tambah delay 1 detik sebelum mulai game lagi
             setTimeout(() => {
