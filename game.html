@@ -52,6 +52,12 @@
             z-index: 100; font-size: 140px; color: #f39c12; font-weight: bold;
             text-shadow: 0 0 40px #f39c12;
         }
+
+        canvas {
+            cursor: none;
+            touch-action: none;
+        }
+
     </style>
 </head>
 <body>
@@ -512,6 +518,10 @@
 
                 canvas.removeEventListener('touchstart', unlockAndPlay);
             };
+            
+            addMouseControls();
+            addKeyboardControls();
+
 
             // Unlock + play music di sentuhan pertama
             canvas.addEventListener("touchstart", unlockAndPlay, { once: true });
@@ -523,6 +533,58 @@
                 bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
                 e.preventDefault();
             }, { passive: false });
+        }
+
+        //=========== Mouse & Keyboard Controls (optional) ===========
+        //Mouse Movement
+        function addMouseControls() {
+            canvas.addEventListener("mousemove", (e) => {
+                if (!isPlaying || isPaused) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                bear.x = e.clientX - rect.left - (bear.width / 2);
+
+                // Batas gerakan agar tidak keluar layar
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            });
+            // Klik untuk interaksi tambahan
+            canvas.addEventListener("click", () => {
+                if (!isPlaying) return;
+                // Contoh: klik untuk pause/unpause
+                isPaused = !isPaused;
+                pauseBtn.textContent = isPaused ? '▶️' : '⏸';
+            });
+        }
+
+        function addKeyboardControls() {
+            document.addEventListener("keydown", (e) => {
+                if (!isPlaying) return;
+
+                switch(e.key) {
+                    case "ArrowLeft":
+                    case "a":
+                    case "A":
+                        bear.x -= 35;  // gerak lebih cepat pakai keyboard
+                        break;
+                    case "ArrowRight":
+                    case "d":
+                    case "D":
+                        bear.x += 35;
+                        break;
+                    case " ":  // Space = Pause
+                        e.preventDefault();
+                        isPaused = !isPaused;
+                        pauseBtn.textContent = isPaused ? '▶' : '⏸';
+                        break;
+                    case "r":
+                    case "R":
+                        if (!isPlaying) restartGame();
+                        break;
+                }
+
+                // Batasi posisi bear
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            });
         }
 
         function spawnItem() {
