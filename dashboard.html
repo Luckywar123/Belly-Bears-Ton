@@ -7,7 +7,7 @@
 
     <script src="supabase-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-   <!-- <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script> -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script> 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <link rel="stylesheet" href="styles.css">
@@ -175,26 +175,26 @@
         dashboardMusic.volume = 0.62;
 
 
-        //let tonConnectUI = null;
+        let tonConnectUI = null;
 
-        //async function initTonConnect() {
-        //    if (tonConnectUI) return;
+        async function initTonConnect() {
+            if (tonConnectUI) return;
 
-        //    try {
-        //        tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-        //            manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
-         //           buttonRootId: 'ton-connect-button',
-         //           uiPreferences: { theme: 'DARK', language: 'en' }
-         //       });
+            try {
+                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                    manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect-button',
+                    uiPreferences: { theme: 'DARK', language: 'en' }
+                });
 
-          //      await tonConnectUI.connectionRestored;
-          //      tonConnectUI.onStatusChange(() => refreshDashboard());
+                await tonConnectUI.connectionRestored;
+                tonConnectUI.onStatusChange(() => refreshDashboard());
 
-           /// } catch (e) {
-           //     console.error("TON Connect error:", e);
-           //     document.getElementById('fallback-connect').style.display = 'block';
-           // }
-        //}
+            } catch (e) {
+                console.error("TON Connect error:", e);
+                document.getElementById('fallback-connect').style.display = 'block';
+            }
+        }
 
         async function refreshLeaderboard() {
             try {
@@ -285,22 +285,22 @@
         }
 
         async function refreshDashboard() {
-        //    const walletInfo = document.getElementById('wallet-info');
+            const walletInfo = document.getElementById('wallet-info');
 
-           // if (tonConnectUI && tonConnectUI.connected) {
-            //    const walletAddress = tonConnectUI.account.address;
-            //    
-            //    walletInfo.innerHTML = `✅ Connected<br><strong>${walletAddress.slice(0,8)}...${walletAddress.slice(-6)}</strong>`;
-           //     
-           //     // <-- INI YANG BARU
-            //    await fetchUserStats(walletAddress);
-            //    
-            //} else {
-            //    walletInfo.innerHTML = '❌ Not Connected';
-            //    document.getElementById('finalscore').textContent = '0';
-            //    document.getElementById('total-coins').textContent = '0';
-            //    document.getElementById('games-played').textContent = '0';
-            //}
+            if (tonConnectUI && tonConnectUI.connected) {
+                const walletAddress = tonConnectUI.account.address;
+                
+                walletInfo.innerHTML = `✅ Connected<br><strong>${walletAddress.slice(0,8)}...${walletAddress.slice(-6)}</strong>`;
+                
+                // <-- INI YANG BARU
+                await fetchUserStats(walletAddress);
+                
+            } else {
+                walletInfo.innerHTML = '❌ Not Connected';
+                document.getElementById('finalscore').textContent = '0';
+                document.getElementById('total-coins').textContent = '0';
+                document.getElementById('games-played').textContent = '0';
+            }
 
             await refreshLeaderboard();
         }
