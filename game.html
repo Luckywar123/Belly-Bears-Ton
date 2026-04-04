@@ -544,41 +544,21 @@
             });
 
             //keyboard
-            canvas.addEventListener("keydown", (e) => {
-                if (!isPlaying || isPaused) return;
+            // === KEYBOARD ===
+            document.addEventListener("keydown", (e) => {
+                if (!isPlaying) return;
 
-                switch(e.key) {
-                    case "ArrowLeft":
-                    case "a":
-                    case "A":
-                        bear.x -= 35;
-                        break;
-                    case "ArrowRight":
-                    case "d":
-                    case "D":
-                        bear.x += 35;
-                        break;
-                    case " ":  // Space = Pause
-                        e.preventDefault();
-                        isPaused = !isPaused;
-                        pauseBtn.textContent = isPaused ? '▶' : '⏸';
-                        break;
-                    case "r":
-                    case "R":
-                        if (!isPlaying) startActualGameDirect();
-                        break;
+                if (e.key === " " || e.key === "Spacebar") {
+                    e.preventDefault();
+                    isPaused = !isPaused;
+                    pauseBtn.textContent = isPaused ? '▶' : '⏸';
                 }
+                if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") bear.x -= 40;
+                if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") bear.x += 40;
 
-                if (e.key =="ArrowLeft" || e.key =="a" || e.key =="A") {
-                    bear.x -= 40;
-                } else if (e.key =="ArrowRight" || e.key =="d" || e.key =="D") {
-                    bear.x += 40;
-                }    
-                        
                 bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-
-                
             });
+
         }
 
         //=========== Mouse & Keyboard Controls (optional) ===========
