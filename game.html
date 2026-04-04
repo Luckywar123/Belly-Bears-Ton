@@ -368,7 +368,8 @@
 
             // Hentikan RAF loop dengan flag
             isPlaying = false;
-            
+            isPaused = false;
+
             // Reset semua variabel game
             score = 0;
             caughtCoins = 0;
@@ -396,13 +397,22 @@
             isPaused = false;
             pauseBtn.textContent = '⏸';
             
-            // Hapus Game Over Overlay
-            const existingOverlay = document.getElementById('gameOverOverlay');
-            if (existingOverlay) existingOverlay.remove();
+            // Hapus semua overlay yang mungkin tertinggal
+            const gameOverOverlay = document.getElementById('gameOverOverlay');
+            if (gameOverOverlay) gameOverOverlay.remove();
 
-            // === PENTING: Hapus Touch Popup yang mungkin masih ada ===
-            const touchPopups = document.querySelectorAll('div[style*="Touch the Screen"], div[style*="touch the screen"]');
-            touchPopups.forEach(p => p.remove());
+            // === HAPUS TOUCH POPUP DENGAN CARA LEBIH KUAT ===
+            const allPopups = document.querySelectorAll('div[style*="position:fixed"][style*="Touch the Screen"], div[style*="touch the screen"]');
+            allPopups.forEach(p => {
+                if (p.parentNode) p.parentNode.removeChild(p);
+            });
+
+            // Cara ekstra aman: hapus semua elemen dengan z-index 90
+            document.querySelectorAll('div').forEach(el => {
+                if (el.style.zIndex === '90' || el.style.zIndex === 90) {
+                    el.remove();
+                }
+            });
             
         }
 
@@ -435,18 +445,21 @@
 
         function startActualGameDirect() {
             // Pastikan tidak ada popup lama
+            resetGameState();
             const oldPopup = document.querySelector('div[style*="Touch the Screen"]');
             if (oldPopup) oldPopup.remove();
 
             countdownScreen.style.display = 'none';
 
             resetGameState();           // reset lagi untuk aman
+            countdownScreen.style.display = 'none';
+            ingameUI.style.display = 'block';
+            canvas.style.opacity = "1";
+
 
             resizeCanvas();
             initLeaves(25);
 
-            ingameUI.style.display = 'block';
-            canvas.style.opacity = "1";
 
             isPlaying = true;
             isPaused = false;
