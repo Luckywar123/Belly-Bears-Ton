@@ -445,6 +445,14 @@
 
         function startActualGameDirect() {
             resetGameState();                    // bersihkan semua
+            
+            document.querySelectorAll('div').forEach(el => {
+                if (el.textContent.includes('Touch the Screen') || 
+                    el.style.zIndex === '90' || 
+                    el.style.zIndex == 90) {
+                    el.remove();
+                }
+            });
 
             countdownScreen.style.display = 'none';
             ingameUI.style.display = 'block';
