@@ -232,7 +232,7 @@
                 const { data: current } = await sb
                     .from('highscores')
                     .select('best_score, total_coins, games_played')
-                    //.eq('wallet_address', address)
+                    .eq('wallet_address', address)
                     .maybeSingle();
 
                 const newBest = Math.max(current?.best_score || 0, finalScore);
