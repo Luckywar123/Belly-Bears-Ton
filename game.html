@@ -549,7 +549,7 @@
 
         function gameOver() {
             // HENTIKAN SEMUA AKTIVITAS GAME
-            bgMusic.pause();
+            
             bgMusic.currentTime = 0;
 
             isPlaying = false;
@@ -600,6 +600,11 @@
             // Hapus overlay Game Over
             const overlay = document.getElementById('gameOverOverlay');
             if (overlay) overlay.remove();
+            isPlaying = false;
+            if (spawnTimer) {
+                clearInterval(spawnTimer);
+                spawnTimer = null;
+            }
 
             // Tambah delay 1 detik sebelum mulai game lagi
             setTimeout(() => {
