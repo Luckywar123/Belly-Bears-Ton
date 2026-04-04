@@ -264,33 +264,35 @@
 
         // ====================== START GAME ======================
         function startCountdown() {
+            // Proteksi: jangan jalankan lagi kalau game sudah mulai
+            if (isPlaying) return;
+
             countdownScreen.style.display = 'flex';
             countdownScreen.style.opacity = '1';
             let count = 3;
 
             const timer = setInterval(() => {
                 countdownScreen.textContent = count;
-                countdownScreen.style.transform = 'scale(1.7)';
+                countdownScreen.style.transform = 'scale(1.75)';
                 countdownScreen.style.opacity = '1';
 
-                // Animasi keluar yang lebih halus
                 setTimeout(() => {
-                    countdownScreen.style.transform = 'scale(0.3)';
+                    countdownScreen.style.transform = 'scale(0.2)';
                     countdownScreen.style.opacity = '0';
-                }, 450);
+                }, 500);
 
                 count--;
+
                 if (count < 0) {
                     clearInterval(timer);
                     setTimeout(() => {
                         countdownScreen.style.display = 'none';
                         countdownScreen.style.opacity = '1';
-                        
-                       
-                        setTimeout(startActualGame, 700);
-                    }, 500);
+                        // Delay sebelum game mulai
+                        setTimeout(startActualGame, 600);
+                    }, 550);
                 }
-            }, 900);   
+            }, 950);
         }
 
         function startActualGame() {
