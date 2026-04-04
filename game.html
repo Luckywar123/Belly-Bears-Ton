@@ -96,6 +96,7 @@
         let spawnTimer;
         let items = [], particles = [], leaves = [];
         let slowMotionUntil = 0;
+        let audioUnlocked = false;
 
         // Audio
         const bgMusic = new Audio('assets/music-game.m4a');
@@ -191,6 +192,22 @@
             canvas.height = window.innerHeight;
             bear.x = canvas.width / 2 - bear.width / 2;
             bear.y = canvas.height - 165;
+        }
+
+        // Unlock Audio untuk Telegram / Mobile
+        function unlockAudio() {
+            if (audioUnlocked) return;
+            audioUnlocked = true;
+
+            // Force unlock semua audio
+            [bgMusic, eatSound, bombSound, jamMusic].forEach(audio => {
+                audio.play().then(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }).catch(() => {});
+            });
+
+            console.log("✅ Audio unlocked");
         }
 
         // ====================== SAVE SCORE ======================
@@ -296,6 +313,8 @@
         }
 
         function startActualGame() {
+            countdownScreen.style.display = 'none';
+
             score = caughtCoins = combo = 0;
             level = 1; speed = 3.5; spawnInterval = 850;
             items = []; particles = []; slowMotionUntil = 0;
@@ -316,11 +335,21 @@
             update();
             addGameControls();
 
-            bgMusic.currentTime = 0;
-            bgMusic.play().catch(() => {});
+            // Mainkan bgMusic setelah audio di-unlock
+            if (audioUnlocked) {
+                bgMusic.currentTime = 0;
+                bgMusic.play().catch(() => {});
+    }
         }
 
         function addGameControls() {
+            const unlockOnce = (e) => {
+                unlockAudio();
+                canvas.removeEventListener('touchstart', unlockOnce);
+            };
+
+            canvas.addEventListener("touchstart", unlockOnce, { once: true });
+
             canvas.addEventListener("touchmove", (e) => {
                 if (!isPlaying || isPaused) return;
                 bear.x = e.touches[0].clientX - (bear.width / 2);
