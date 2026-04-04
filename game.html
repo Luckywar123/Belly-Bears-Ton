@@ -551,7 +551,7 @@
         function update() {
             if (!isPlaying || isPaused) {
                 if (isPlaying && isPaused) {
-                    // optional: draw pause screen
+                    return;
                 }
                 requestAnimationFrame(update); // tetap lanjut supaya pause responsive
                 return;
