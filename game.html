@@ -496,38 +496,22 @@
                 if (audioUnlocked) return;
                 audioUnlocked = true;
 
-                console.log("✅ User touched screen - unlocking audio");
+                console.log("✅ Audio unlocked on user interaction");
 
-                // Unlock semua audio
                 [bgMusic, eatSound, bombSound, jamMusic].forEach(audio => {
-                    audio.play().then(() => {
-                        audio.pause();
-                        audio.currentTime = 0;
-                    }).catch(() => {});
+                    audio.play().then(() => audio.pause()).catch(() => {});
                 });
 
-                // Mainkan background music
                 setTimeout(() => {
                     bgMusic.currentTime = 0;
-                    bgMusic.play().catch(err => {
-                        console.warn("bgMusic first play failed, retrying...", err);
-                        // Retry sekali lagi
-                        setTimeout(() => bgMusic.play().catch(() => {}), 800);
-                    });
+                    bgMusic.play().catch(() => {});
                 }, 300);
 
+                // Hapus listener setelah pertama kali
                 canvas.removeEventListener('touchstart', unlockAndPlay);
             };
-            
-            addMouseControls();
-            addKeyboardControls();
 
-
-            // Unlock + play music di sentuhan pertama
-            canvas.addEventListener("touchstart", unlockAndPlay, { once: true });
-            canvas.addEventListener("click", unlockAndPlay, { once: true });
-
-            // Gerakkan beruang
+            // === TOUCH (HP) ===
             canvas.addEventListener("touchmove", (e) => {
                 if (!isPlaying || isPaused) return;
                 bear.x = e.touches[0].clientX - (bear.width / 2);
@@ -535,15 +519,14 @@
                 e.preventDefault();
             }, { passive: false });
 
-            //Mouse
-            canvas.addEventListener("click", () => {
+            // === MOUSE (Komputer) ===
+            canvas.addEventListener("mousemove", (e) => {
                 if (!isPlaying || isPaused) return;
                 const rect = canvas.getBoundingClientRect();
-                bear.x = event.clientX - rect.left - (bear.width / 2);
+                bear.x = e.clientX - rect.left - (bear.width / 2);
                 bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
             });
 
-            //keyboard
             // === KEYBOARD ===
             document.addEventListener("keydown", (e) => {
                 if (!isPlaying) return;
@@ -559,6 +542,9 @@
                 bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
             });
 
+            // Unlock audio di touch atau klik pertama
+            canvas.addEventListener("touchstart", unlockAndPlay, { once: true });
+            canvas.addEventListener("click", unlockAndPlay, { once: true });   // tambahan untuk PC
         }
 
         //=========== Mouse & Keyboard Controls (optional) ===========
