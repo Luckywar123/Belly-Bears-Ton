@@ -487,8 +487,15 @@
                 if (item.type === 'bomb') ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
                 else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
                 else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+                
+                const itemRight = item.x + item.size;
+                const itemBottom = item.y + item.size;
 
-                if (item.y + 45 > bear.y && item.x + 40 > bear.x && item.x < bear.x + bear.width) {
+                if (itemBottom > bear.y &&
+                        item.y < bear.y + bear.height &&
+                        itemRight > bear.x &&
+                        item.x < bear.x + bear.width
+                ) {
                     if (item.type === 'bomb') {
                         score = Math.max(0, score - 45);
                         combo = 0;
@@ -549,7 +556,8 @@
 
         function gameOver() {
             // HENTIKAN SEMUA AKTIVITAS GAME
-            
+            if (!isPlaying) return;
+            isPlaying = false;
             bgMusic.currentTime = 0;
 
             isPlaying = false;
@@ -600,11 +608,7 @@
             // Hapus overlay Game Over
             const overlay = document.getElementById('gameOverOverlay');
             if (overlay) overlay.remove();
-            isPlaying = false;
-            if (spawnTimer) {
-                clearInterval(spawnTimer);
-                spawnTimer = null;
-            }
+            
 
             // Tambah delay 1 detik sebelum mulai game lagi
             setTimeout(() => {
