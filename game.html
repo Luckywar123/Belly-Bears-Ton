@@ -603,7 +603,6 @@
         function gameOver() {
             // HENTIKAN SEMUA AKTIVITAS GAME
             if (!isPlaying) return;
-            isPlaying = false;
             bgMusic.currentTime = 0;
 
             isPlaying = false;
@@ -615,11 +614,7 @@
             // Simpan score ke database
             saveScore(score, caughtCoins);
 
-            // Hentikan game loop sepenuhnya
-            // (kita tidak memanggil requestAnimationFrame lagi)
-
-            // Tampilkan Game Over Screen
-            canvas.style.opacity = "0";
+            canvas.style.opacity = "0.3";
 
             setTimeout(() => {
                 // Buat overlay Game Over
