@@ -8,7 +8,7 @@
     <script src="supabase-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <!-- <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script> -->
 
     <style>
         body {
@@ -87,7 +87,7 @@
 
         const sb = supabase.createClient(window.SUPABASE_CONFIG.URL, window.SUPABASE_CONFIG.ANON_KEY);
 
-        let tonConnectUI = null;
+        //let tonConnectUI = null;
 
         // DOM
         const canvas = document.getElementById("gameCanvas");
@@ -222,17 +222,17 @@
 
         // ====================== SAVE SCORE ======================
         async function saveScore(finalScore, coinsCaught) {
-            if (!tonConnectUI || !tonConnectUI.connected) return;
+           // if (!tonConnectUI || !tonConnectUI.connected) return;
 
-            const address = tonConnectUI.account.address;
-            const tgUser = tg.initDataUnsafe?.user;
-            const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
+            //const address = tonConnectUI.account.address;
+            //const tgUser = tg.initDataUnsafe?.user;
+            //const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
 
             try {
                 const { data: current } = await sb
                     .from('highscores')
                     .select('best_score, total_coins, games_played')
-                    .eq('wallet_address', address)
+                    //.eq('wallet_address', address)
                     .maybeSingle();
 
                 const newBest = Math.max(current?.best_score || 0, finalScore);
@@ -240,7 +240,7 @@
                 const newGames = (current?.games_played || 0) + 1;
 
                 await sb.from('highscores').upsert({
-                    wallet_address: address,
+                    //wallet_address: address,
                     username: username,
                     best_score: newBest,
                     total_coins: newTotalCoins,
@@ -302,10 +302,7 @@
             });
         }
 
-        // TON Connect (jika butuh)
-        async function initTonConnect() {
-            // ... (bisa kosong dulu)
-        }
+     
 
         // ====================== START GAME ======================
         function startCountdown() {
