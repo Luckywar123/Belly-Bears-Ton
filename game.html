@@ -413,6 +413,19 @@
                     el.remove();
                 }
             });
+
+            // === HAPUS SEMUA TOUCH POPUP DENGAN CARA PALING KUAT ===
+            const popups = document.querySelectorAll('div[style*="z-index: 90"], div[style*="z-index:90"]');
+            popups.forEach(p => p.remove());
+
+            // Cara ekstra: hapus berdasarkan teks
+            document.querySelectorAll('div').forEach(div => {
+                if (div.innerHTML.includes('Touch the Screen') || 
+                    div.innerHTML.includes('to start playing')) {
+                    div.remove();
+                }
+            });
+            
             
         }
 
