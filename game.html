@@ -529,18 +529,30 @@
 
             // === KEYBOARD ===
             document.addEventListener("keydown", (e) => {
-                if (!isPlaying) return;
+                if (!isPlaying || isPaused) return;
 
-                if (e.key === " " || e.key === "Spacebar") {
-                    e.preventDefault();
-                    isPaused = !isPaused;
-                    pauseBtn.textContent = isPaused ? '▶' : '⏸';
+                switch(e.key.toLowerCase()) {
+                    case " ":
+                    case "spacebar":
+                        e.preventDefault();
+                        isPaused = !isPaused;
+                        pauseBtn.textContent = isPaused ? '▶' : '⏸';
+                        break;
+
+                    case "arrowleft":
+                    case "a":
+                        bear.x -= 40;
+                        break;
+
+                    case "arrowright":
+                    case "d":
+                        bear.x += 40;
+                        break;
                 }
-                if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") bear.x -= 40;
-                if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") bear.x += 40;
 
+                // Batasi posisi bear
                 bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-            });
+            }, { passive: false });
 
             // Unlock audio di touch atau klik pertama
             canvas.addEventListener("touchstart", unlockAndPlay, { once: true });
