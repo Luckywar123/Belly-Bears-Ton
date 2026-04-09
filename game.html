@@ -550,6 +550,63 @@
             pauseBtn.textContent = isPaused ? '▶' : '⏸';
         });
 
+
+        // ====================== PRELOAD ALL ASSETS ======================
+        function preloadAllAssets(callback) {
+            const images = [
+                bear.imgPending,
+                bear.imgEating,
+                coinImg,
+                bombImg,
+                backgroundImg,
+                slowPowerImg
+            ];
+
+            let loadedCount = 0;
+            const totalAssets = images.length;
+
+            const updateLoading = () => {
+                const percent = Math.floor((loadedCount / totalAssets) * 100);
+                document.getElementById("loading-bar").style.width = percent + "%";
+                document.getElementById("loading-text").textContent = `Loading ${loadedCount}/${totalAssets}...`;
+            };
+
+            function assetLoaded() {
+                loadedCount++;
+                updateLoading();
+
+                if (loadedCount === totalAssets) {
+                    document.getElementById("loading-text").textContent = "Game Ready!";
+                    // Sembunyikan loading screen
+                    const loadingScreen = document.getElementById("loading-screen");
+                    loadingScreen.style.transition = "opacity 0.6s";
+                    loadingScreen.style.opacity = "0";
+
+                    setTimeout(() => {
+                        loadingScreen.style.display = "none";
+                        callback();           // ← ini yang memanggil startCountdown()
+                    }, 600);
+                }
+            }
+
+            // Load semua gambar
+            images.forEach(img => {
+                if (img.complete) {
+                    assetLoaded();
+                } else {
+                    img.onload = assetLoaded;
+                    img.onerror = () => {
+                        console.warn("Gagal load:", img.src);
+                        assetLoaded(); // tetap lanjut biar nggak stuck
+                    };
+                }
+            });
+
+            // Preload audio (optional tapi bagus)
+            [bgMusic, eatSound, bombSound, jamMusic].forEach(audio => audio.load());
+        }
+
+
         // INIT
         document.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
