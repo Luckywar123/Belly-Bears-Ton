@@ -8,7 +8,6 @@
     <script src="supabase-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 
     <style>
         body {
@@ -77,8 +76,6 @@
         <h1>BELLY BEARS</h1>
         <p>Catch the coins, don't let them escape!</p>
         
-        <div id="ton-connect-button" style="margin:20px auto;text-align:center;"></div>
-        
         <!-- Start Eating Button -->
         <button onclick="startGame()" 
                 style="background:none;border:none;padding:0;margin:15px auto 20px;display:block;cursor:pointer;">
@@ -106,38 +103,18 @@
         tg.expand();
         tg.setHeaderColor("#1a1a1a");
 
-        let tonConnectUI = null;
-
-        async function initTonConnect() {
-            if (tonConnectUI) return;
-            try {
-                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-                    manifestUrl: 'https://belly-bears-ton-q9b3.vercel.app/tonconnect-manifest.json',
-                    buttonRootId: 'ton-connect-button',
-                    uiPreferences: { theme: 'DARK', language: 'en' }
-                });
-                await tonConnectUI.connectionRestored;
-            } catch (e) { console.error("TON Connect error:", e); }
-        }
-
         function startGame() {
-            if (!tonConnectUI || !tonConnectUI.connected) {
-                alert("⚠️ Please connect your TON wallet first!");
-                return;
-            }
-            // Pindah ke game
+            // Langsung masuk ke game tanpa cek wallet
             window.location.href = 'game.html';
         }
 
         // INIT
         document.addEventListener('DOMContentLoaded', () => {
-            initTonConnect();
-            
             // Tampilkan loading dulu
             const loadingScreen = document.getElementById('loading-screen');
             loadingScreen.style.display = "flex";
 
-            // Sembunyikan loading setelah 1.2 detik (bisa diubah)
+            // Sembunyikan loading setelah 1.2 detik
             setTimeout(() => {
                 loadingScreen.style.opacity = "0";
                 setTimeout(() => {
