@@ -161,40 +161,27 @@
             updateBellyPassUI();
         }
 
-        // ====================== SAVE SCORE PAKAI TELEGRAM USERNAME ======================
+        // ====================== SAVE SCORE (PAKAI TELEGRAM USERNAME) ======================
         async function saveScore(finalScore, coinsCaught) {
             const tgUser = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
 
-            console.log(`💾 Saving score for Telegram user: @${username} | Score: ${finalScore}`);
+            console.log(`💾 Saving score for @${username} | Score: ${finalScore}`);
 
             try {
-                const { data: current } = await sb
-                    .from('highscores')
-                    .select('best_score, total_coins, games_played')
-                    .eq('telegram_username', username)
-                    .maybeSingle();
-
-                const newBest = Math.max(current?.best_score || 0, finalScore);
-                const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
-                const newGames = (current?.games_played || 0) + 1;
-
                 const { error } = await sb.from('highscores').upsert({
                     telegram_username: username,
                     username: username,
-                    best_score: newBest,
-                    total_coins: newTotalCoins,
-                    games_played: newGames,
+                    best_score: finalScore,
+                    total_coins: coinsCaught,
+                    games_played: 1,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'telegram_username' });
 
-                if (error) {
-                    console.error("Supabase error:", error);
-                } else {
-                    console.log("✅ Score successfully saved using Telegram username!");
-                }
+                if (error) console.error("Supabase error:", error);
+                else console.log("✅ Score saved successfully!");
             } catch (err) {
-                console.error("Save score exception:", err);
+                console.error("Save score error:", err);
             }
         }
 
@@ -304,6 +291,53 @@
                     audio.pause();
                     audio.currentTime = 0;
                 }).catch(() => {});
+            });
+        }
+
+        // ====================== PRELOAD ALL ASSETS ======================
+        function preloadAllAssets(callback) {
+            const images = [
+                bear.imgPending, bear.imgEating, coinImg, bombImg,
+                backgroundImg, slowPowerImg,
+                {src: "assets/ICON.png"}
+            ];
+            const audios = [bgMusic, eatSound, bombSound, jamMusic];
+
+            let loaded = 0;
+            const total = images.length + audios.length;
+
+            const loadingBar = document.getElementById("loading-bar");
+            const loadingText = document.getElementById("loading-text");
+
+            const checkLoaded = () => {
+                loaded++;
+                const percent = Math.floor((loaded / total) * 100);
+                loadingBar.style.width = percent + "%";
+                loadingText.textContent = `Loading assets... ${percent}%`;
+
+                if (loaded >= total) {
+                    setTimeout(() => {
+                        const loadingScreen = document.getElementById("loading-screen");
+                        loadingScreen.style.opacity = "0";
+                        setTimeout(() => {
+                            loadingScreen.style.display = "none";
+                            callback();
+                        }, 400);
+                    }, 300);
+                }
+            };
+
+            images.forEach(item => {
+                const img = item.src ? new Image() : item;
+                img.onload = checkLoaded;
+                img.onerror = checkLoaded;
+                if (item.src) img.src = item.src;
+            });
+
+            audios.forEach(audio => {
+                audio.oncanplaythrough = checkLoaded;
+                audio.onerror = checkLoaded;
+                audio.load();
             });
         }
 
@@ -624,17 +658,26 @@
 
         function drawPauseFrame() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (backgroundImg.complete) ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
-            else { ctx.fillStyle = "#0f2a1f"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+
+            if (backgroundImg.complete) {
+                ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = "#0f2a1f";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
 
             leaves.forEach(leaf => leaf.draw());
+
             items.forEach(item => {
                 if (item.type === 'bomb') ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
                 else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
                 else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
             });
+
             particles.forEach(p => p.draw());
+
             ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
+
             scoreDisplay.textContent = `Score: ${score}`;
         }
 
@@ -681,8 +724,9 @@
         });
 
         // INIT GAME
-        document.addEventListener('DOMContentLoaded', async () => {
+        document.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
+
             const loadingScreen = document.getElementById("loading-screen");
             loadingScreen.style.display = "flex";
             loadingScreen.style.opacity = "1";
