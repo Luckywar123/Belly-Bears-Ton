@@ -161,27 +161,31 @@
             updateBellyPassUI();
         }
 
-        // ====================== SAVE SCORE (PAKAI TELEGRAM USERNAME) ======================
+        // ====================== SAVE SCORE PAKAI TELEGRAM USERNAME ======================
         async function saveScore(finalScore, coinsCaught) {
             const tgUser = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
 
-            console.log(`💾 Saving score for @${username} | Score: ${finalScore}`);
+            console.log(`💾 Saving score for Telegram user: @${username} | Score: ${finalScore}`);
 
             try {
                 const { error } = await sb.from('highscores').upsert({
-                    telegram_username: username,
-                    username: username,
+                    username: username,                    // ← Kolom yang ada di tabel kamu
                     best_score: finalScore,
                     total_coins: coinsCaught,
                     games_played: 1,
                     updated_at: new Date().toISOString()
-                }, { onConflict: 'telegram_username' });
+                }, { 
+                    onConflict: 'username'                 // ← Ubah jadi 'username'
+                });
 
-                if (error) console.error("Supabase error:", error);
-                else console.log("✅ Score saved successfully!");
+                if (error) {
+                    console.error("Supabase upsert error:", error);
+                } else {
+                    console.log("✅ Score successfully saved using username!");
+                }
             } catch (err) {
-                console.error("Save score error:", err);
+                console.error("Save score exception:", err);
             }
         }
 
