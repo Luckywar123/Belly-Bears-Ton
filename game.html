@@ -116,11 +116,11 @@
         let slowMotionUntil = 0;
         let audioUnlocked = false;
         
-        //Belly Pass
+        // === BELLY PASS ===
         let bellyPass = null;
         let shieldCharges = 0;
-        let magnetUntill = 0;
-        let doubleCoinsMuleiplier = 1;
+        let magnetUntil = 0;
+        let doubleCoinsMultiplier = 1;
 
 
 
@@ -276,17 +276,20 @@
 
         // ====================== SAVE SCORE ======================
         async function saveScore(finalScore, coinsCaught) {
-            if (!tonConnectUI || !tonConnectUI.connected) return;
-
-            const address = tonConnectUI.account.address;
             const tgUser = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
+
+            // Jika wallet connect, pakai wallet_address, kalau tidak pakai telegram_username
+            let walletAddress = null;
+            if (tonConnectUI && tonConnectUI.connected) {
+                walletAddress = tonConnectUI.account.address;
+            }
 
             try {
                 const { data: current } = await sb
                     .from('highscores')
                     .select('best_score, total_coins, games_played')
-                    .eq('wallet_address', address)
+                    .eq('wallet_address', walletAddress)
                     .maybeSingle();
 
                 const newBest = Math.max(current?.best_score || 0, finalScore);
@@ -294,15 +297,16 @@
                 const newGames = (current?.games_played || 0) + 1;
 
                 await sb.from('highscores').upsert({
-                    //wallet_address: address,
+                    wallet_address: walletAddress,           // boleh null
                     username: username,
+                    telegram_username: username,             // tambahan untuk keamanan
                     best_score: newBest,
                     total_coins: newTotalCoins,
                     games_played: newGames,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'wallet_address' });
 
-                console.log("✅ Score saved to database");
+                console.log("✅ Score saved successfully for @" + username);
             } catch (err) {
                 console.error("Save score error:", err);
             }
@@ -373,7 +377,7 @@
             ui.textContent = text.trim();
             ui.style.display = 'block';
         }
-     
+
         function activateMagnet() {
             if (!bellyPass || !bellyPass.power_ups?.coin_magnet) return;
             magnetUntil = Date.now() + 60000; // 1 menit
