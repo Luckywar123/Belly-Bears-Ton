@@ -316,33 +316,34 @@
 
 
         async function loadBellyPassDashboard() {
-            if (!tonConnectUI || !tonConnectUI.connected) {
-                document.getElementById('pass-text').innerHTML = '❌ Wallet not connected';
+            const tgUser = tg.initDataUnsafe?.user;
+            const username = tgUser?.username;
+
+            if (!username) {
+                document.getElementById('pass-text').innerHTML = '❌ Telegram username tidak terdeteksi';
                 return;
             }
-
-            const wallet = tonConnectUI.account.address;
 
             const { data } = await sb
                 .from('belly_passes')
                 .select('power_ups, expiry_date, active')
-                .eq('wallet_address', wallet)
+                .eq('telegram_username', username)
                 .eq('active', true)
                 .single();
 
             const el = document.getElementById('pass-text');
 
             if (!data || !data.active) {
-                el.innerHTML = '❌ No Active Belly Pass';
+                el.innerHTML = `❌ No Active Pass for <strong>@${username}</strong>`;
                 return;
             }
 
-            let html = `<strong>✅ Active Belly Pass</strong><br>`;
+            let html = `<strong>✅ Belly Pass Active (@${username})</strong><br>`;
             html += `Expires: ${new Date(data.expiry_date).toLocaleDateString('id-ID')}<br><br>`;
 
-            if (data.power_ups?.shield) html += `🛡️ Shield: ${data.power_ups.shield} left<br>`;
+            if (data.power_ups?.shield) html += `🛡️ Shield: ${data.power_ups.shield} charges<br>`;
             if (data.power_ups?.coin_magnet) html += `🧲 Coin Magnet (1 menit)<br>`;
-            if (data.power_ups?.combo_master) html += `💰 Double Coins<br>`;
+            if (data.power_ups?.combo_master) html += `💰 Double Coins Active<br>`;
 
             el.innerHTML = html;
         }

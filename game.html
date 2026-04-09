@@ -123,29 +123,39 @@
 
 
 
-        //Fetch Belly Pass
+        // ====================== LOAD BELLY PASS (PAKAI TELEGRAM USERNAME) ======================
         async function loadBellyPass() {
-            if (!tonConnectUI || !tonConnectUI.connected) return;
-
-            const wallet = tonConnectUI.account.address;
-
-            const { data, error} = await sb
-                .from('belly_passes'_)
-                .select('*')
-                .eq('wallet_address', wallet)
-                .eq('is_active', true)
-                .single();
-
-            if (error || !data) {
-                console.error("No Active Belly Pass found", error);
+            const tgUser = tg.initDataUnsafe?.user;
+            if (!tgUser || !tgUser.username) {
+                console.log("❌ No Telegram username detected");
                 bellyPass = null;
                 return;
             }
+
+            const username = tgUser.username;   // contoh: @Borntoberichman
+
+            const { data, error } = await sb
+                .from('belly_passes')
+                .select('*')
+                .eq('telegram_username', username)     // ← GANTI KE INI
+                .eq('active', true)
+                .single();
+
+            if (error || !data) {
+                console.log("No active Belly Pass for @" + username);
+                bellyPass = null;
+                shieldCharges = 0;
+                magnetUntil = 0;
+                doubleCoinsMultiplier = 1;
+                return;
+            }
+
             bellyPass = data;
             shieldCharges = bellyPass.power_ups?.shield || 0;
+            magnetUntil = 0; // reset dulu
             doubleCoinsMultiplier = bellyPass.power_ups?.combo_master === true ? 2 : 1;
 
-            console.log("✅ Belly Pass Loaded:", bellyPass);
+            console.log("✅ Belly Pass Loaded for @" + username, bellyPass);
         }
 
         // Audio
