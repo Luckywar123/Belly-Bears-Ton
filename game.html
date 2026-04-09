@@ -79,6 +79,7 @@
         <div class="stat" id="scoreDisplay">Score: 0</div>
         <div class="stat" id="levelDisplay">Level 1</div>
         <div class="stat" id="comboDisplay">Combo ×1.5</div>
+        <div id="bellyPassUI" class="stat" style="top: 110px; left: 25px; font-size:18px; display:none;"></div>
         <button id="pauseBtn" style="position:absolute;top:20px;right:25px;font-size:32px;color:white;background:none;border:none;cursor:pointer;pointer-events:auto;">⏸</button>
     </div>
 
@@ -113,6 +114,39 @@
         let items = [], particles = [], leaves = [];
         let slowMotionUntil = 0;
         let audioUnlocked = false;
+        
+        //Belly Pass
+        let bellyPass = null;
+        let shieldCharges = 0;
+        let magnetUntill = 0;
+        let doubleCoinsMuleiplier = 1;
+
+
+
+        //Fetch Belly Pass
+        async function loadBellyPass() {
+            if (!tonConnectUI || !tonConnectUI.connected) return;
+
+            const wallet = tonConnectUI.account.address;
+
+            const { data, error} = await sb
+                .from('belly_passes'_)
+                .select('*')
+                .eq('wallet_address', wallet)
+                .eq('is_active', true)
+                .single();
+
+            if (error || !data) {
+                console.error("No Active Belly Pass found", error);
+                bellyPass = null;
+                return;
+            }
+            bellyPass = data;
+            shieldCharges = bellyPass.power_ups?.shield || 0;
+            doubleCoinsMultiplier = bellyPass.power_ups?.combo_master === true ? 2 : 1;
+
+            console.log("✅ Belly Pass Loaded:", bellyPass);
+        }
 
         // Audio
         const bgMusic = new Audio('assets/music-game.mp3');
@@ -226,6 +260,26 @@
             });
         }
 
+
+        function updateBellyPassUI() {
+            const ui = document.getElementById('bellyPassUI');
+            if (!bellyPass) {
+                ui.style.display = 'none';
+                return;
+            }
+
+            const magnetLeft = Math.max(0, Math.ceil((magnetUntil - Date.now()) / 1000));
+            let text = `Belly Pass `;
+
+            if (shieldCharges > 0) text += `🛡️ ${shieldCharges} `;
+            if (magnetLeft > 0) text += `🧲 ${magnetLeft}s `;
+            if (doubleCoinsMultiplier === 2) text += `💰 ×2`;
+
+            ui.textContent = text.trim();
+            ui.style.display = 'block';
+        }
+
+
         // ====================== SAVE SCORE ======================
         async function saveScore(finalScore, coinsCaught) {
             if (!tonConnectUI || !tonConnectUI.connected) return;
@@ -309,6 +363,11 @@
         }
 
      
+        function activateMagnet() {
+            if (!bellyPass || !(bellyPass.power_ups?.coin_magnet)) return;
+            magnetUntil = Date.now() + 60000; // 1 menit
+            updateBellyPassUI();
+        }
 
         // ====================== START GAME ======================
         function startCountdown() {
@@ -456,6 +515,8 @@
             bear.currentImg = bear.imgPending;
             update();
             addGameControls();
+
+            await loadBellyPass();
         }
 
 
@@ -604,6 +665,7 @@
             if (isPaused) {
                 // Render ulang frame terakhir (supaya pause terlihat bagus)
                 drawPauseFrame();
+                updateBellyPassUI();
                 requestAnimationFrame(update);
                 return;
             }
@@ -621,6 +683,24 @@
             leaves.forEach(leaf => { leaf.update(); leaf.draw(); });
 
             const now = Date.now();
+            const isMagnetActive = now < magnetUntill;
+
+            if (isMagnetActive) {
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const item = items[i];
+                    if (item.type !== 'coin') continue;
+
+                    const dx = bear.x + bear.width/2 - (item.x + item.size/2);
+                    const dy = bear.y + bear.height/2 - (item.y + item.size/2);
+                    const distance = Math.sqrt(dx*dx + dy*dy);
+
+                    if (distance < 220 && distance > 5) {  // radius magnet
+                        item.x += dx * 0.18;
+                        item.y += dy * 0.18;
+                    }
+                }
+            }
+
             const isSlow = now < slowMotionUntil;
             const currentSpeed = isSlow ? speed * 0.45 : speed;
 
@@ -639,20 +719,29 @@
                     itemRight > bear.x && item.x < bear.x + bear.width) {
 
                     if (item.type === 'bomb') {
-                        score = Math.max(0, score - 45);
-                        combo = 0;
-                        bombSound.currentTime = 0;
-                        bombSound.play().catch(() => {});
-                    } else if (item.type === 'slow') {
-                        slowMotionUntil = now + 5500;
+                        if (shieldCharges > 0) {
+                            shieldCharges--;
+                            createParticles(item.x + 20, item.y + 10, 8); // efek shield
+                            // sound shield
+                        } else {
+                            score = Math.max(0, score - 45);
+                            combo = 0;
+                            bombSound.currentTime = 0;
+                            bombSound.play().catch(() => {});
+                        }
+                    } 
+                    else if (item.type === 'slow') {
+                        slowMotionUntil = Date.now() + 5500;
                         jamMusic.currentTime = 0;
                         jamMusic.play().catch(() => {});
-                    } else {
-                        const multiplier = (now - lastComboTime < 1200 && combo >= 2) ? 1.5 : 1;
-                        score += Math.floor(15 * multiplier);
+                    } 
+                    else { // coin
+                        const baseScore = 15;
+                        const finalScore = Math.floor(baseScore * doubleCoinsMultiplier);
+                        score += finalScore;
                         caughtCoins++;
                         combo++;
-                        lastComboTime = now;
+                        lastComboTime = Date.now();
 
                         bear.currentImg = bear.imgEating;
                         setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);

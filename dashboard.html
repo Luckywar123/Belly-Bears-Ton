@@ -73,9 +73,17 @@
             ❌ Not Connected
         </div>
 
+
         <!-- TON Connect Button - DITENGAHKAN -->
         <div style="display: flex; justify-content: center; margin-bottom: 20px;">
             <div id="ton-connect-button" style="width: 100%; max-width: 320px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>Belly Pass Status</h2>
+            <div id="belly-pass-status" style="padding:15px; background:#1f2a38; border-radius:12px; text-align:center; min-height:80px;">
+                <p id="pass-text" style="margin:0; font-size:1.1rem; color:#f1c40f;">Loading pass...</p>
+            </div>
         </div>
 
         <div style="display: flex; gap: 10px; margin: 8px 0 20px 0;">
@@ -303,7 +311,42 @@
             }
 
             await refreshLeaderboard();
+            await loadBellyPassDashboard();
         }
+
+
+        async function loadBellyPassDashboard() {
+            if (!tonConnectUI || !tonConnectUI.connected) {
+                document.getElementById('pass-text').innerHTML = '❌ Wallet not connected';
+                return;
+            }
+
+            const wallet = tonConnectUI.account.address;
+
+            const { data } = await sb
+                .from('belly_passes')
+                .select('power_ups, expiry_date, active')
+                .eq('wallet_address', wallet)
+                .eq('active', true)
+                .single();
+
+            const el = document.getElementById('pass-text');
+
+            if (!data || !data.active) {
+                el.innerHTML = '❌ No Active Belly Pass';
+                return;
+            }
+
+            let html = `<strong>✅ Active Belly Pass</strong><br>`;
+            html += `Expires: ${new Date(data.expiry_date).toLocaleDateString('id-ID')}<br><br>`;
+
+            if (data.power_ups?.shield) html += `🛡️ Shield: ${data.power_ups.shield} left<br>`;
+            if (data.power_ups?.coin_magnet) html += `🧲 Coin Magnet (1 menit)<br>`;
+            if (data.power_ups?.combo_master) html += `💰 Double Coins<br>`;
+
+            el.innerHTML = html;
+        }
+
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
