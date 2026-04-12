@@ -321,39 +321,42 @@
 
             if (!username) {
                 document.getElementById('pass-text').innerHTML = 
-                    '❌ Telegram username not found. Please set a username in Telegram settings to view Belly Pass status.';
+                    '❌ Telegram username tidak terdeteksi.';
                 return;
             }
 
-            const cleanUsername = username.replace('@', '').toLowerCase(); // bersihkan @ dan lowercase
+            const cleanUsername = username.replace('@', '').toLowerCase();
 
             const { data, error } = await sb
                 .from('belly_passes')
-                .select('power_ups, expiry_date, active, telegram_username')
+                .select('power_ups, expiry_date, active, telegram_username, id')  // tambah id biar gampang debug
                 .eq('active', true)
-                .or(`telegram_username.ilike.%${cleanUsername}%,telegram_username.ilike.%@${cleanUsername}%`)  // cek dengan & tanpa @
-                .maybeSingle();
+                .or(`telegram_username.ilike.%${cleanUsername}%,telegram_username.ilike.%@${cleanUsername}%`)
+                .order('created_at', { ascending: false })   // ambil yang paling baru
+                .limit(1);                                   // paksa hanya 1 baris
 
             const el = document.getElementById('pass-text');
 
             if (error) {
                 console.error("Supabase error:", error);
-                el.innerHTML = `❌ Error database: ${error.message}`;
+                el.innerHTML = `❌ Database error: ${error.message}`;
                 return;
             }
 
-            if (!data) {
+            if (!data || data.length === 0) {
                 el.innerHTML = `❌ No Active Pass for <strong>@${username}</strong>`;
                 return;
             }
 
-            // Kalau ketemu, tampilkan
-            let html = `<strong>✅ Belly Pass Active (@${username})</strong><br>`;
-            html += `Expires: ${new Date(data.expiry_date).toLocaleDateString('id-ID')}<br><br>`;
+            // data sekarang array, ambil index 0
+            const pass = data[0];
 
-            if (data.power_ups?.shield) html += `🛡️ Shield: ${data.power_ups.shield} charges<br>`;
-            if (data.power_ups?.coin_magnet) html += `🧲 Coin Magnet (1 menit)<br>`;
-            if (data.power_ups?.combo_master) html += `💰 Double Coins Active<br>`;
+            let html = `<strong>✅ Belly Pass Active (@${username})</strong><br>`;
+            html += `Expires: ${new Date(pass.expiry_date).toLocaleDateString('id-ID')}<br><br>`;
+
+            if (pass.power_ups?.shield) html += `🛡️ Shield: ${pass.power_ups.shield} charges<br>`;
+            if (pass.power_ups?.coin_magnet) html += `🧲 Coin Magnet (1 menit)<br>`;
+            if (pass.power_ups?.combo_master) html += `💰 Double Coins Active<br>`;
 
             el.innerHTML = html;
         }
