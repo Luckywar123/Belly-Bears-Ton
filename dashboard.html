@@ -320,24 +320,34 @@
             const username = tgUser?.username;
 
             if (!username) {
-                document.getElementById('pass-text').innerHTML = '❌ Telegram username not found. Please set a username in Telegram to view Belly Pass status.';
+                document.getElementById('pass-text').innerHTML = 
+                    '❌ Telegram username not found. Please set a username in Telegram settings to view Belly Pass status.';
                 return;
             }
 
+            const cleanUsername = username.replace('@', '').toLowerCase(); // bersihkan @ dan lowercase
+
             const { data, error } = await sb
                 .from('belly_passes')
-                .select('power_ups, expiry_date, active')
-                .ilike('telegram_username', `%${username.replace('@', '')}%`)
+                .select('power_ups, expiry_date, active, telegram_username')
                 .eq('active', true)
+                .or(`telegram_username.ilike.%${cleanUsername}%,telegram_username.ilike.%@${cleanUsername}%`)  // cek dengan & tanpa @
                 .maybeSingle();
 
             const el = document.getElementById('pass-text');
 
-            if (!data || !data.active) {
+            if (error) {
+                console.error("Supabase error:", error);
+                el.innerHTML = `❌ Error database: ${error.message}`;
+                return;
+            }
+
+            if (!data) {
                 el.innerHTML = `❌ No Active Pass for <strong>@${username}</strong>`;
                 return;
             }
 
+            // Kalau ketemu, tampilkan
             let html = `<strong>✅ Belly Pass Active (@${username})</strong><br>`;
             html += `Expires: ${new Date(data.expiry_date).toLocaleDateString('id-ID')}<br><br>`;
 
