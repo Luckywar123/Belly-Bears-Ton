@@ -96,7 +96,7 @@
                 X (Twitter)
             </button>
             
-            <button onclick="window.open('https://belly-bears.com', '_blank')" 
+            <button onclick="window.open('https://belly-bears.xyz', '_blank')" 
                     style="flex: 1; background: linear-gradient(135deg, #f39c12, #e67e22); 
                            color: white; border: none; padding: 14px 16px; border-radius: 9999px; 
                            font-weight: 600; font-size: 1rem; display: flex; align-items: center; 
@@ -265,7 +265,7 @@
                     .from('highscores')
                     .select('best_score, total_coins, games_played')
                     .eq('wallet_address', walletAddress)
-                    .maybeSingle();   // <-- ini yang penting (null kalau belum ada row)
+                    .maybeSingle();   
 
                 if (error) {
                     console.error("User stats error:", error);
@@ -324,12 +324,12 @@
                 return;
             }
 
-            const { data } = await sb
+            const { data, error } = await sb
                 .from('belly_passes')
                 .select('power_ups, expiry_date, active')
-                .eq('telegram_username', username)
+                .ilike('telegram_username', `%${username.replace('@', '')}%`)
                 .eq('active', true)
-                .single();
+                .maybeSingle();
 
             const el = document.getElementById('pass-text');
 
