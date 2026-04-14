@@ -30,19 +30,15 @@
             padding: 6px 14px; border-radius: 9999px;
         }
 
-        /* COUNTDOWN OVERLAY */
+        /* COUNTDOWN */
         #countdown-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.75);
-            display: none;
+            background: rgba(0,0,0,0.75); display: none;
             justify-content: center; align-items: center;
-            z-index: 200;
-            flex-direction: column;
+            z-index: 200; flex-direction: column;
         }
         #countdown-number {
-            font-size: 160px;
-            color: #f39c12;
-            font-weight: bold;
+            font-size: 160px; color: #f39c12; font-weight: bold;
             text-shadow: 0 0 60px #f39c12, 0 0 20px #fff;
             transition: transform 0.15s ease, opacity 0.15s ease;
             line-height: 1;
@@ -50,23 +46,18 @@
 
         canvas { cursor: none; touch-action: none; }
 
-        /* GAME OVER OVERLAY */
+        /* GAME OVER */
         #game-over-overlay {
-            display: none;
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.92);
-            z-index: 300;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            text-align: center;
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.92); z-index: 300;
+            flex-direction: column; justify-content: center; align-items: center;
+            color: white; text-align: center;
         }
         #game-over-overlay h1 {
             font-size: 3.2rem; color: #f39c12; margin: 0 0 10px 0;
             text-shadow: 0 0 30px #f39c12;
         }
-        #game-over-overlay .final-score {
+        .final-score {
             font-size: 5rem; font-weight: bold; color: #f1c40f;
             margin: 5px 0 5px 0; line-height: 1;
             text-shadow: 0 0 20px #f1c40f88;
@@ -105,7 +96,7 @@
         <div id="countdown-number">3</div>
     </div>
 
-    <!-- GAME OVER (built-in, no DOM injection) -->
+    <!-- GAME OVER -->
     <div id="game-over-overlay">
         <h1>GAME OVER</h1>
         <p style="font-size:1.4rem;margin:4px 0 0 0;color:#aaa;">Final Score</p>
@@ -140,76 +131,19 @@
 
         // Game Variables
         let isPlaying = false, isPaused = false;
-        let score = 0, caughtCoins = 0, level = 1, combo = 0, lastComboTime = 0;
+        let score = 0, caughtCoins = 0, level = 1, combo = 0;
         let speed = 3.5, spawnInterval = 850;
         let spawnTimer;
         let items = [], particles = [], leaves = [];
         let slowMotionUntil = 0;
         let animFrameId = null;
+        let audioUnlocked = false;
 
         // Belly Pass
         let bellyPass = null;
         let shieldCharges = 0;
         let magnetUntil = 0;
         let doubleCoinsMultiplier = 1;
-
-        // ====================== LOAD BELLY PASS ======================
-        async function loadBellyPass() {
-            const tgUser = tg.initDataUnsafe?.user;
-            if (!tgUser?.username) { bellyPass = null; return; }
-            const username = tgUser.username;
-
-            const { data } = await sb
-                .from('belly_passes')
-                .select('*')
-                .eq('telegram_username', username)
-                .eq('active', true)
-                .single();
-
-            if (!data) {
-                bellyPass = null; shieldCharges = 0; magnetUntil = 0; doubleCoinsMultiplier = 1;
-                updateBellyPassUI(); return;
-            }
-
-            bellyPass = data;
-            shieldCharges = bellyPass.power_ups?.shield || 0;
-            magnetUntil = 0;
-            doubleCoinsMultiplier = bellyPass.power_ups?.combo_master === true ? 2 : 1;
-            updateBellyPassUI();
-        }
-
-        // ====================== SAVE SCORE ======================
-        async function saveScore(finalScore, coinsCaught) {
-            const tgUser = tg.initDataUnsafe?.user;
-            const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
-
-            try {
-                // Ambil data lama dulu
-                const { data: existing } = await sb
-                    .from('highscores')
-                    .select('best_score, total_coins, games_played')
-                    .eq('telegram_username', username)
-                    .maybeSingle();
-
-                const newBest = existing ? Math.max(existing.best_score || 0, finalScore) : finalScore;
-                const newCoins = (existing?.total_coins || 0) + coinsCaught;
-                const newGames = (existing?.games_played || 0) + 1;
-
-                const { error } = await sb.from('highscores').upsert({
-                    telegram_username: username,
-                    username: username,
-                    best_score: newBest,
-                    total_coins: newCoins,
-                    games_played: newGames,
-                    last_score: finalScore
-                }, { onConflict: 'telegram_username' });
-
-                if (error) console.error("Save score error:", error);
-                else console.log("✅ Score saved:", newBest);
-            } catch (err) {
-                console.error("Save score exception:", err);
-            }
-        }
 
         // Audio
         const bgMusic = new Audio('assets/music-game.mp3'); bgMusic.loop = true; bgMusic.volume = 0.75;
@@ -233,6 +167,7 @@
         const backgroundImg = new Image(); backgroundImg.src = "assets/Background-game.png";
         const slowPowerImg = new Image(); slowPowerImg.src = "assets/slow-power.png";
 
+       // Leaf & Particle
         class Leaf {
             constructor(){ this.reset(); }
             reset(){
@@ -245,30 +180,44 @@
                 this.opacity = Math.random() * 0.5 + 0.2;
             }
             update(){
-                this.y += this.speed; this.wobble += this.wobbleSpeed;
+                this.y += this.speed;
+                this.wobble += this.wobbleSpeed;
                 this.x += Math.sin(this.wobble) * 1.6;
                 if (this.y > canvas.height + 20) this.reset();
             }
             draw(){
-                ctx.save(); ctx.globalAlpha = this.opacity;
-                ctx.translate(this.x, this.y); ctx.rotate(Math.sin(this.wobble) * 0.45);
-                ctx.fillStyle = "#4ade80"; ctx.beginPath();
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(Math.sin(this.wobble) * 0.45);
+                ctx.fillStyle = "#4ade80";
+                ctx.beginPath();
                 ctx.ellipse(0, 0, this.size, this.size * 0.58, 0, 0, Math.PI * 2);
-                ctx.fill(); ctx.restore();
+                ctx.fill();
+                ctx.restore();
             }
         }
 
         class Particle {
             constructor(x, y){
                 this.x = x; this.y = y;
-                this.vx = Math.random()*6-3; this.vy = Math.random()*-5-2;
+                this.vx = Math.random()*6-3;
+                this.vy = Math.random()*-5-2;
                 this.life = 28;
                 this.color = `hsl(${Math.random()*40+40},100%,70%)`;
             }
-            update(){ this.x += this.vx; this.y += this.vy; this.vy += 0.25; this.life--; }
+            update(){ 
+                this.x += this.vx; 
+                this.y += this.vy; 
+                this.vy += 0.25; 
+                this.life--; 
+            }
             draw(){
-                ctx.save(); ctx.globalAlpha = this.life / 28;
-                ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, 6, 6); ctx.restore();
+                ctx.save();
+                ctx.globalAlpha = this.life / 28;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, 6, 6);
+                ctx.restore();
             }
         }
 
@@ -295,14 +244,94 @@
             bellyPassUI.style.display = 'block';
         }
 
-        // ====================== COUNTDOWN (hanya angka 3) ======================
+        async function loadBellyPass() {
+            const tgUser = tg.initDataUnsafe?.user;
+            if (!tgUser?.username) { bellyPass = null; return; }
+            const username = tgUser.username;
+
+            const { data } = await sb
+                .from('belly_passes')
+                .select('*')
+                .eq('telegram_username', username)
+                .eq('active', true)
+                .single();
+
+            if (!data) {
+                bellyPass = null; shieldCharges = 0; magnetUntil = 0; doubleCoinsMultiplier = 1;
+                updateBellyPassUI(); return;
+            }
+
+            bellyPass = data;
+            shieldCharges = bellyPass.power_ups?.shield || 0;
+            magnetUntil = 0;
+            doubleCoinsMultiplier = bellyPass.power_ups?.combo_master === true ? 2 : 1;
+            updateBellyPassUI();
+        }
+
+        async function saveScore(finalScore, coinsCaught) {
+            const tgUser = tg.initDataUnsafe?.user;
+            const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
+
+            try {
+                const { data: existing } = await sb
+                    .from('highscores')
+                    .select('best_score, total_coins, games_played')
+                    .eq('telegram_username', username)
+                    .maybeSingle();
+
+                const newBest = existing ? Math.max(existing.best_score || 0, finalScore) : finalScore;
+                const newCoins = (existing?.total_coins || 0) + coinsCaught;
+                const newGames = (existing?.games_played || 0) + 1;
+
+                await sb.from('highscores').upsert({
+                    telegram_username: username,
+                    username: username,
+                    best_score: newBest,
+                    total_coins: newCoins,
+                    games_played: newGames,
+                    last_score: finalScore
+                }, { onConflict: 'telegram_username' });
+            } catch (err) {
+                console.error("Save score error:", err);
+            }
+        }
+
+        function unlockAudio() {
+            if (audioUnlocked) return;
+            audioUnlocked = true;
+            [bgMusic, eatSound, bombSound, jamMusic].forEach(a => {
+                a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+            });
+        }
+
+        function setupControls() {
+            const moveBear = (clientX) => {
+                if (!isPlaying || isPaused) return;
+                bear.x = clientX - (bear.width / 2);
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            };
+
+            canvas.addEventListener("touchmove", (e) => {
+                e.preventDefault();
+                moveBear(e.touches[0].clientX);
+            }, { passive: false });
+
+            canvas.addEventListener("mousemove", (e) => {
+                const rect = canvas.getBoundingClientRect();
+                moveBear(e.clientX - rect.left);
+            });
+
+            // Unlock audio di sentuhan pertama
+            canvas.addEventListener("touchstart", unlockAudio, { once: true });
+            canvas.addEventListener("mousedown", unlockAudio, { once: true });
+        }
+
         function startCountdown(callback) {
             countdownScreen.style.display = 'flex';
             countdownNumber.style.opacity = '1';
             countdownNumber.style.transform = 'scale(1)';
             countdownNumber.textContent = '3';
 
-            // Animasi muncul
             countdownNumber.animate([
                 { transform: 'scale(0.3)', opacity: 0 },
                 { transform: 'scale(1.3)', opacity: 1, offset: 0.6 },
@@ -310,7 +339,6 @@
             ], { duration: 500, fill: 'forwards' });
 
             setTimeout(() => {
-                // Fade out
                 countdownNumber.animate([
                     { transform: 'scale(1)', opacity: 1 },
                     { transform: 'scale(2)', opacity: 0 }
@@ -337,27 +365,6 @@
             pauseBtn.textContent = '⏸';
         }
 
-        function addGameControls() {
-            // Remove old listeners by cloning canvas
-            const newCanvas = canvas.cloneNode(true);
-            canvas.parentNode.replaceChild(newCanvas, canvas);
-            // Re-assign reference is tricky, use flags instead
-
-            canvas.ontouchmove = (e) => {
-                if (!isPlaying || isPaused) return;
-                e.preventDefault();
-                bear.x = e.touches[0].clientX - (bear.width / 2);
-                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-            };
-
-            canvas.onmousemove = (e) => {
-                if (!isPlaying || isPaused) return;
-                const rect = canvas.getBoundingClientRect();
-                bear.x = e.clientX - rect.left - (bear.width / 2);
-                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
-            };
-        }
-
         async function startActualGame() {
             resetGameState();
             resizeCanvas();
@@ -375,7 +382,8 @@
             await loadBellyPass();
             updateBellyPassUI();
 
-            addGameControls();
+            bgMusic.play().catch(() => {});   // coba mainkan musik
+
             animFrameId = requestAnimationFrame(update);
         }
 
@@ -406,8 +414,7 @@
 
         function drawScene() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (backgroundImg.complete && backgroundImg.naturalWidth)
-                ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+            if (backgroundImg.complete) ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
             else { ctx.fillStyle = "#0f2a1f"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
             leaves.forEach(leaf => leaf.draw());
         }
@@ -422,6 +429,7 @@
                     else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
                     else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
                 });
+                particles.forEach(p => p.draw());
                 ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
                 updateBellyPassUI();
                 animFrameId = requestAnimationFrame(update);
@@ -442,7 +450,10 @@
                     const dx = bear.x + bear.width/2 - (item.x + item.size/2);
                     const dy = bear.y + bear.height/2 - (item.y + item.size/2);
                     const dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist < 220 && dist > 5) { item.x += dx * 0.18; item.y += dy * 0.18; }
+                    if (dist < 220 && dist > 5) {
+                        item.x += dx * 0.18;
+                        item.y += dy * 0.18;
+                    }
                 });
             }
 
@@ -454,8 +465,8 @@
                 else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
                 else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
 
-                const hit = item.y + item.size > bear.y && item.y < bear.y + bear.height
-                         && item.x + item.size > bear.x && item.x < bear.x + bear.width;
+                const hit = item.y + item.size > bear.y && item.y < bear.y + bear.height &&
+                            item.x + item.size > bear.x && item.x < bear.x + bear.width;
 
                 if (hit) {
                     if (item.type === 'bomb') {
@@ -474,7 +485,6 @@
                         score += Math.floor(15 * doubleCoinsMultiplier);
                         caughtCoins++;
                         combo++;
-                        lastComboTime = Date.now();
                         bear.currentImg = bear.imgEating;
                         setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);
                         createParticles(item.x + 20, item.y + 10);
@@ -491,11 +501,13 @@
             }
 
             for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update(); particles[i].draw();
+                particles[i].update();
+                particles[i].draw();
                 if (particles[i].life <= 0) particles.splice(i, 1);
             }
 
             ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
+
             scoreDisplay.textContent = `Score: ${score}`;
             updateDifficulty();
             updateBellyPassUI();
@@ -525,7 +537,6 @@
         function restartGame() {
             gameOverOverlay.style.display = 'none';
             canvas.style.opacity = '1';
-            // Langsung countdown lalu main
             startCountdown(() => startActualGame());
         }
 
@@ -533,12 +544,7 @@
             window.location.href = 'index.html';
         }
 
-        pauseBtn.addEventListener('click', () => {
-            isPaused = !isPaused;
-            pauseBtn.textContent = isPaused ? '▶' : '⏸';
-        });
-
-        // ====================== PRELOAD ASSETS ======================
+        // PRELOAD
         function preloadAllAssets(callback) {
             const images = [bear.imgPending, bear.imgEating, coinImg, bombImg, backgroundImg, slowPowerImg];
             let loaded = 0;
@@ -559,7 +565,7 @@
             }
 
             images.forEach(img => {
-                if (img.complete && img.naturalWidth) done();
+                if (img.complete) done();
                 else { img.onload = done; img.onerror = done; }
             });
 
@@ -569,9 +575,15 @@
         // INIT
         window.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
+            setupControls();           // ← kontrol dipasang SEKALI di awal
             preloadAllAssets(() => {
                 startCountdown(() => startActualGame());
             });
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? '▶' : '⏸';
         });
     </script>
 </body>
