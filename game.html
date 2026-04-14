@@ -30,6 +30,29 @@
             padding: 6px 14px; border-radius: 9999px;
         }
 
+        /* TOMBOL MAGNET */
+        #magnetBtn {
+            position: absolute;
+            bottom: 30px;
+            right: 25px;
+            width: 70px; height: 70px;
+            background: rgba(0,0,0,0.75);
+            border: 4px solid #f39c12;
+            border-radius: 50%;
+            color: #f1c40f;
+            font-size: 36px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 40;
+            pointer-events: auto;
+            box-shadow: 0 0 25px rgba(243,156,18,0.7);
+            transition: all 0.2s;
+        }
+        #magnetBtn:active { transform: scale(0.85); background: #f39c12; color: #000; }
+
+        canvas { cursor: none; touch-action: none; }
+
         /* COUNTDOWN */
         #countdown-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -44,8 +67,6 @@
             line-height: 1;
         }
 
-        canvas { cursor: none; touch-action: none; }
-
         /* GAME OVER */
         #game-over-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -53,19 +74,11 @@
             flex-direction: column; justify-content: center; align-items: center;
             color: white; text-align: center;
         }
-        #game-over-overlay h1 {
-            font-size: 3.2rem; color: #f39c12; margin: 0 0 10px 0;
-            text-shadow: 0 0 30px #f39c12;
-        }
-        .final-score {
-            font-size: 5rem; font-weight: bold; color: #f1c40f;
-            margin: 5px 0 5px 0; line-height: 1;
-            text-shadow: 0 0 20px #f1c40f88;
-        }
+        #game-over-overlay h1 { font-size: 3.2rem; color: #f39c12; margin: 0 0 10px 0; text-shadow: 0 0 30px #f39c12; }
+        .final-score { font-size: 5rem; font-weight: bold; color: #f1c40f; margin: 5px 0; text-shadow: 0 0 20px #f1c40f88; }
         .go-btn {
-            padding: 14px 32px; font-size: 1.2rem;
-            border: none; border-radius: 12px; cursor: pointer;
-            font-weight: 700; transition: transform 0.1s;
+            padding: 14px 32px; font-size: 1.2rem; border: none; border-radius: 12px;
+            cursor: pointer; font-weight: 700; transition: transform 0.1s;
         }
         .go-btn:active { transform: scale(0.96); }
     </style>
@@ -89,6 +102,7 @@
         <div class="stat" id="comboDisplay">Combo ×1.5</div>
         <div id="bellyPassUI" class="stat"></div>
         <button id="pauseBtn" style="position:absolute;top:20px;right:25px;font-size:32px;color:white;background:none;border:none;cursor:pointer;pointer-events:auto;z-index:30;">⏸</button>
+        <button id="magnetBtn">🧲</button>
     </div>
 
     <!-- COUNTDOWN -->
@@ -127,9 +141,9 @@
         const comboDisplay = document.getElementById("comboDisplay");
         const bellyPassUI = document.getElementById("bellyPassUI");
         const pauseBtn = document.getElementById("pauseBtn");
+        const magnetBtn = document.getElementById("magnetBtn");
         const gameOverOverlay = document.getElementById("game-over-overlay");
 
-        // Game Variables
         let isPlaying = false, isPaused = false;
         let score = 0, caughtCoins = 0, level = 1, combo = 0;
         let speed = 3.5, spawnInterval = 850;
@@ -137,7 +151,6 @@
         let items = [], particles = [], leaves = [];
         let slowMotionUntil = 0;
         let animFrameId = null;
-        let audioUnlocked = false;
 
         // Belly Pass
         let bellyPass = null;
@@ -167,7 +180,6 @@
         const backgroundImg = new Image(); backgroundImg.src = "assets/Background-game.png";
         const slowPowerImg = new Image(); slowPowerImg.src = "assets/slow-power.png";
 
-       // Leaf & Particle
         class Leaf {
             constructor(){ this.reset(); }
             reset(){
@@ -186,38 +198,25 @@
                 if (this.y > canvas.height + 20) this.reset();
             }
             draw(){
-                ctx.save();
-                ctx.globalAlpha = this.opacity;
-                ctx.translate(this.x, this.y);
-                ctx.rotate(Math.sin(this.wobble) * 0.45);
-                ctx.fillStyle = "#4ade80";
-                ctx.beginPath();
+                ctx.save(); ctx.globalAlpha = this.opacity;
+                ctx.translate(this.x, this.y); ctx.rotate(Math.sin(this.wobble) * 0.45);
+                ctx.fillStyle = "#4ade80"; ctx.beginPath();
                 ctx.ellipse(0, 0, this.size, this.size * 0.58, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
+                ctx.fill(); ctx.restore();
             }
         }
 
         class Particle {
             constructor(x, y){
                 this.x = x; this.y = y;
-                this.vx = Math.random()*6-3;
-                this.vy = Math.random()*-5-2;
+                this.vx = Math.random()*6-3; this.vy = Math.random()*-5-2;
                 this.life = 28;
                 this.color = `hsl(${Math.random()*40+40},100%,70%)`;
             }
-            update(){ 
-                this.x += this.vx; 
-                this.y += this.vy; 
-                this.vy += 0.25; 
-                this.life--; 
-            }
+            update(){ this.x += this.vx; this.y += this.vy; this.vy += 0.25; this.life--; }
             draw(){
-                ctx.save();
-                ctx.globalAlpha = this.life / 28;
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x, this.y, 6, 6);
-                ctx.restore();
+                ctx.save(); ctx.globalAlpha = this.life / 28;
+                ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, 6, 6); ctx.restore();
             }
         }
 
@@ -246,7 +245,7 @@
 
         async function loadBellyPass() {
             const tgUser = tg.initDataUnsafe?.user;
-            if (!tgUser?.username) { bellyPass = null; return; }
+            if (!tgUser?.username) { bellyPass = null; magnetBtn.style.display = 'none'; return; }
             const username = tgUser.username;
 
             const { data } = await sb
@@ -258,20 +257,28 @@
 
             if (!data) {
                 bellyPass = null; shieldCharges = 0; magnetUntil = 0; doubleCoinsMultiplier = 1;
+                magnetBtn.style.display = 'none';
                 updateBellyPassUI(); return;
             }
 
             bellyPass = data;
             shieldCharges = bellyPass.power_ups?.shield || 0;
-            magnetUntil = 0;
             doubleCoinsMultiplier = bellyPass.power_ups?.combo_master === true ? 2 : 1;
+            magnetUntil = 0;
+
+            magnetBtn.style.display = bellyPass.power_ups?.coin_magnet ? 'flex' : 'none';
+            updateBellyPassUI();
+        }
+
+        function activateMagnet() {
+            if (!bellyPass || !bellyPass.power_ups?.coin_magnet || magnetUntil > Date.now()) return;
+            magnetUntil = Date.now() + 60000; // 60 detik
             updateBellyPassUI();
         }
 
         async function saveScore(finalScore, coinsCaught) {
             const tgUser = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
-
             try {
                 const { data: existing } = await sb
                     .from('highscores')
@@ -297,8 +304,6 @@
         }
 
         function unlockAudio() {
-            if (audioUnlocked) return;
-            audioUnlocked = true;
             [bgMusic, eatSound, bombSound, jamMusic].forEach(a => {
                 a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
             });
@@ -307,8 +312,7 @@
         function setupControls() {
             const moveBear = (clientX) => {
                 if (!isPlaying || isPaused) return;
-                bear.x = clientX - (bear.width / 2);
-                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, clientX - bear.width / 2));
             };
 
             canvas.addEventListener("touchmove", (e) => {
@@ -321,9 +325,10 @@
                 moveBear(e.clientX - rect.left);
             });
 
-            // Unlock audio di sentuhan pertama
+            magnetBtn.addEventListener('click', activateMagnet);
+
+            // Unlock audio
             canvas.addEventListener("touchstart", unlockAudio, { once: true });
-            canvas.addEventListener("mousedown", unlockAudio, { once: true });
         }
 
         function startCountdown(callback) {
@@ -332,18 +337,10 @@
             countdownNumber.style.transform = 'scale(1)';
             countdownNumber.textContent = '3';
 
-            countdownNumber.animate([
-                { transform: 'scale(0.3)', opacity: 0 },
-                { transform: 'scale(1.3)', opacity: 1, offset: 0.6 },
-                { transform: 'scale(1)', opacity: 1 }
-            ], { duration: 500, fill: 'forwards' });
+            countdownNumber.animate([{transform:'scale(0.3)',opacity:0},{transform:'scale(1.3)',opacity:1,offset:0.6},{transform:'scale(1)',opacity:1}], {duration:500,fill:'forwards'});
 
             setTimeout(() => {
-                countdownNumber.animate([
-                    { transform: 'scale(1)', opacity: 1 },
-                    { transform: 'scale(2)', opacity: 0 }
-                ], { duration: 300, fill: 'forwards' });
-
+                countdownNumber.animate([{transform:'scale(1)',opacity:1},{transform:'scale(2)',opacity:0}], {duration:300,fill:'forwards'});
                 setTimeout(() => {
                     countdownScreen.style.display = 'none';
                     callback();
@@ -357,7 +354,8 @@
             isPlaying = false; isPaused = false;
             score = caughtCoins = combo = 0;
             level = 1; speed = 3.5; spawnInterval = 850;
-            slowMotionUntil = 0; items = []; particles = [];
+            slowMotionUntil = 0; magnetUntil = 0;
+            items = []; particles = [];
             bear.currentImg = bear.imgPending;
             scoreDisplay.textContent = "Score: 0";
             levelDisplay.textContent = "Level 1";
@@ -382,7 +380,7 @@
             await loadBellyPass();
             updateBellyPassUI();
 
-            bgMusic.play().catch(() => {});   // coba mainkan musik
+            bgMusic.play().catch(() => {});
 
             animFrameId = requestAnimationFrame(update);
         }
@@ -444,6 +442,7 @@
             const isSlow = now < slowMotionUntil;
             const currentSpeed = isSlow ? speed * 0.45 : speed;
 
+            // MAGNET EFFECT
             if (isMagnetActive) {
                 items.forEach(item => {
                     if (item.type !== 'coin') return;
@@ -451,8 +450,8 @@
                     const dy = bear.y + bear.height/2 - (item.y + item.size/2);
                     const dist = Math.sqrt(dx*dx + dy*dy);
                     if (dist < 220 && dist > 5) {
-                        item.x += dx * 0.18;
-                        item.y += dy * 0.18;
+                        item.x += dx * 0.22;
+                        item.y += dy * 0.22;
                     }
                 });
             }
@@ -472,7 +471,8 @@
                     if (item.type === 'bomb') {
                         if (shieldCharges > 0) {
                             shieldCharges--;
-                            createParticles(item.x + 20, item.y + 10, 8);
+                            createParticles(item.x + 20, item.y + 10, 12);
+                            updateBellyPassUI();
                         } else {
                             score = Math.max(0, score - 45);
                             combo = 0;
@@ -544,7 +544,6 @@
             window.location.href = 'index.html';
         }
 
-        // PRELOAD
         function preloadAllAssets(callback) {
             const images = [bear.imgPending, bear.imgEating, coinImg, bombImg, backgroundImg, slowPowerImg];
             let loaded = 0;
@@ -572,10 +571,9 @@
             [bgMusic, eatSound, bombSound, jamMusic].forEach(a => a.load());
         }
 
-        // INIT
         window.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
-            setupControls();           // ← kontrol dipasang SEKALI di awal
+            setupControls();
             preloadAllAssets(() => {
                 startCountdown(() => startActualGame());
             });
