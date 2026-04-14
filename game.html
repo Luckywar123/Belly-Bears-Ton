@@ -380,7 +380,7 @@
             await loadBellyPass();
             updateBellyPassUI();
 
-            bgMusic.play().catch(() => {});
+            bgMusic.play().catch(()=>{});
 
             animFrameId = requestAnimationFrame(update);
         }
@@ -442,16 +442,16 @@
             const isSlow = now < slowMotionUntil;
             const currentSpeed = isSlow ? speed * 0.45 : speed;
 
-            // MAGNET EFFECT
+            // MAGNET EFFECT - lebih kuat & jarak lebih jauh (320px + tarikan 0.28)
             if (isMagnetActive) {
                 items.forEach(item => {
                     if (item.type !== 'coin') return;
                     const dx = bear.x + bear.width/2 - (item.x + item.size/2);
                     const dy = bear.y + bear.height/2 - (item.y + item.size/2);
                     const dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist < 220 && dist > 5) {
-                        item.x += dx * 0.22;
-                        item.y += dy * 0.22;
+                    if (dist < 320 && dist > 5) {
+                        item.x += dx * 0.28;
+                        item.y += dy * 0.28;
                     }
                 });
             }
@@ -469,19 +469,16 @@
 
                 if (hit) {
                     if (item.type === 'bomb') {
-                        if (shieldCharges > 0) {
-                            shieldCharges--;
-                            createParticles(item.x + 20, item.y + 10, 12);
-                            updateBellyPassUI();
-                        } else {
-                            score = Math.max(0, score - 45);
-                            combo = 0;
-                            bombSound.currentTime = 0; bombSound.play().catch(()=>{});
-                        }
+                        // kena bom → selalu kena damage + partikel api (shield TIDAK berkurang di bom)
+                        score = Math.max(0, score - 45);
+                        combo = 0;
+                        bombSound.currentTime = 0; bombSound.play().catch(()=>{});
+                        createParticles(item.x + 20, item.y + 10, 12);
                     } else if (item.type === 'slow') {
                         slowMotionUntil = Date.now() + 5500;
                         jamMusic.currentTime = 0; jamMusic.play().catch(()=>{});
                     } else {
+                        // coin
                         score += Math.floor(15 * doubleCoinsMultiplier);
                         caughtCoins++;
                         combo++;
@@ -494,9 +491,20 @@
                     continue;
                 }
 
+                // Shield hanya berkurang saat koin lolos (bukan kena bom)
                 if (item.y > canvas.height + 80) {
-                    if (item.type === 'coin') { gameOver(); return; }
+                    if (item.type === 'coin') {
+                        if (shieldCharges > 0) {
+                            shieldCharges--;
+                            createParticles(item.x + 20, item.y + 10, 12);
+                            updateBellyPassUI();
+                        } else {
+                            gameOver();
+                            return;
+                        }
+                    }
                     items.splice(i, 1);
+                    continue;
                 }
             }
 
