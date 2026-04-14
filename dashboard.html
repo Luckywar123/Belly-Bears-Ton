@@ -296,25 +296,20 @@
 
         let currentPlayerData = null;
 
-        // ====================== PLAYER PROFILE ======================
+        // Ganti fungsi loadPlayerProfile() dengan yang ini
         async function loadPlayerProfile() {
             const tgUser = tg.initDataUnsafe?.user;
-            if (!tgUser) {
-                document.getElementById('profile-name').textContent = 'Guest';
-                document.getElementById('profile-username').textContent = '@unknown';
-                return;
-            }
+            if (!tgUser) return;
 
             const username = tgUser.username || tgUser.first_name || 'Player';
-            const displayName = tgUser.first_name || username;
-            const firstName = tgUser.first_name || '';
-            const lastName = tgUser.last_name || '';
-            const fullName = [firstName, lastName].filter(Boolean).join(' ') || username;
+            const fullName = tgUser.first_name && tgUser.last_name 
+                ? `${tgUser.first_name} ${tgUser.last_name}` 
+                : tgUser.first_name || username;
 
             document.getElementById('profile-name').textContent = fullName;
             document.getElementById('profile-username').textContent = tgUser.username ? `@${tgUser.username}` : `ID: ${tgUser.id}`;
 
-            // Upsert player record (register jika baru)
+            // Upsert player
             let { data: player, error } = await sb
                 .from('players')
                 .select('*')
@@ -322,7 +317,6 @@
                 .maybeSingle();
 
             if (!player) {
-                // Generate player_id unik
                 const playerId = generatePlayerId();
                 const refCode = generateRefCode();
 
@@ -332,8 +326,6 @@
                     display_name: fullName,
                     player_id: playerId,
                     referral_code: refCode,
-                    referral_count: 0,
-                    bonus_coins: 0,
                     referred_by: null
                 }).select().single();
 
@@ -347,15 +339,13 @@
                 document.getElementById('ref-total').textContent = player.referral_count || 0;
                 document.getElementById('ref-bonus').textContent = player.bonus_coins || 0;
 
-                // Jika sudah punya referral, sembunyikan input
                 if (player.referred_by) {
                     const refSection = document.getElementById('ref-input-section');
                     refSection.innerHTML = `<p style="color:#2ecc71;font-size:0.88rem;margin:0;">
-                        ✅ Referred by code <strong>${player.referred_by}</strong></p>`;
+                        ✅ Referred by <strong>${player.referred_by}</strong></p>`;
                 }
             }
 
-            // Load stats dari highscores
             await loadUserStats(username);
         }
 
