@@ -164,6 +164,10 @@
         const bombSound = new Audio('assets/bom-bgm.m4a'); bombSound.volume = 0.65;
         const jamMusic = new Audio('assets/jam-bgm.m4a'); jamMusic.volume = 0.55;
 
+        // === AUDIO BARU ===
+        const magnetActivateSound = new Audio('assets/magnet-activate.m4a'); magnetActivateSound.volume = 0.65;
+        const shieldSound = new Audio('assets/shield-activate.m4a'); shieldSound.volume = 0.6;
+
         // Bear
         const bear = {
             x: 0, y: 0, width: 90, height: 90,
@@ -206,17 +210,30 @@
             }
         }
 
+        // === PARTICLE BARU (lebih fleksibel) ===
         class Particle {
-            constructor(x, y){
-                this.x = x; this.y = y;
-                this.vx = Math.random()*6-3; this.vy = Math.random()*-5-2;
-                this.life = 28;
-                this.color = `hsl(${Math.random()*40+40},100%,70%)`;
+            constructor(x, y, options = {}){
+                this.x = x;
+                this.y = y;
+                this.vx = options.vx ?? Math.random() * 6 - 3;
+                this.vy = options.vy ?? Math.random() * -5 - 2;
+                this.life = options.life ?? 28;
+                this.maxLife = this.life;
+                this.color = options.color ?? `hsl(${Math.random()*40+40},100%,70%)`;
+                this.size = options.size ?? 6;
             }
-            update(){ this.x += this.vx; this.y += this.vy; this.vy += 0.25; this.life--; }
+            update(){
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.25;
+                this.life--;
+            }
             draw(){
-                ctx.save(); ctx.globalAlpha = this.life / 28;
-                ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, 6, 6); ctx.restore();
+                ctx.save();
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+                ctx.restore();
             }
         }
 
@@ -270,10 +287,71 @@
             updateBellyPassUI();
         }
 
+        // === AKTIVASI MAGNET + PARTIKEL + SUARA ===
         function activateMagnet() {
             if (!bellyPass || !bellyPass.power_ups?.coin_magnet || magnetUntil > Date.now()) return;
-            magnetUntil = Date.now() + 60000; // 60 detik
+            
+            magnetUntil = Date.now() + 60000;
+            
+            // Partikel magnet (ledakan biru-cyan di sekitar beruang)
+            createMagnetActivateParticles();
+            
+            // Suara magnet
+            magnetActivateSound.currentTime = 0;
+            magnetActivateSound.play().catch(() => {});
+            
             updateBellyPassUI();
+        }
+
+        // === PARTICLE FUNCTIONS BARU ===
+        function createParticles(x, y, count = 12) {
+            // Partikel biasa (sparkle kuning-emas) untuk coin & shield
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x + 20, y + 20));
+            }
+        }
+
+        function createFireExplosion(x, y, count = 22) {
+            // Partikel API-API untuk bom (merah-oranye, naik ke atas)
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x + 20, y + 10, {
+                    vx: Math.random() * 9 - 4.5,
+                    vy: Math.random() * -9 - 5,
+                    life: 30 + Math.random() * 18,
+                    color: `hsl(${10 + Math.random() * 40}, 100%, ${50 + Math.random() * 45}%)`,
+                    size: 3 + Math.random() * 7
+                }));
+            }
+        }
+
+        function createShieldBlockParticles(x, y, count = 16) {
+            // Partikel shield (biru putih) saat shield menangkal koin lolos
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x + 20, y + 10, {
+                    vx: Math.random() * 7 - 3.5,
+                    vy: Math.random() * -8,
+                    life: 24,
+                    color: `hsl(195, 100%, ${70 + Math.random() * 30}%)`,
+                    size: 5
+                }));
+            }
+        }
+
+        function createMagnetActivateParticles() {
+            // Ledakan partikel magnet saat tombol ditekan
+            const cx = bear.x + bear.width / 2;
+            const cy = bear.y + bear.height / 2;
+            for (let i = 0; i < 42; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const force = 9 + Math.random() * 11;
+                particles.push(new Particle(cx, cy, {
+                    vx: Math.cos(angle) * force,
+                    vy: Math.sin(angle) * force - 4,
+                    life: 26,
+                    color: "#00f0ff",
+                    size: 4.5
+                }));
+            }
         }
 
         async function saveScore(finalScore, coinsCaught) {
@@ -304,7 +382,7 @@
         }
 
         function unlockAudio() {
-            [bgMusic, eatSound, bombSound, jamMusic].forEach(a => {
+            [bgMusic, eatSound, bombSound, jamMusic, magnetActivateSound, shieldSound].forEach(a => {
                 a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
             });
         }
@@ -394,10 +472,6 @@
             items.push({ x: Math.random() * (canvas.width - 60), y: -70, size: 50, type });
         }
 
-        function createParticles(x, y, count = 12) {
-            for (let i = 0; i < count; i++) particles.push(new Particle(x + 20, y + 20));
-        }
-
         function updateDifficulty() {
             const newLevel = Math.floor(score / 200) + 1;
             levelDisplay.textContent = `Level ${newLevel}`;
@@ -442,7 +516,7 @@
             const isSlow = now < slowMotionUntil;
             const currentSpeed = isSlow ? speed * 0.45 : speed;
 
-            // MAGNET EFFECT - lebih kuat & jarak lebih jauh (320px + tarikan 0.28)
+            // MAGNET EFFECT
             if (isMagnetActive) {
                 items.forEach(item => {
                     if (item.type !== 'coin') return;
@@ -469,11 +543,11 @@
 
                 if (hit) {
                     if (item.type === 'bomb') {
-                        // kena bom → selalu kena damage + partikel api (shield TIDAK berkurang di bom)
+                        // KENA BOM → partikel API + suara + damage
                         score = Math.max(0, score - 45);
                         combo = 0;
                         bombSound.currentTime = 0; bombSound.play().catch(()=>{});
-                        createParticles(item.x + 20, item.y + 10, 12);
+                        createFireExplosion(item.x, item.y, 22);
                     } else if (item.type === 'slow') {
                         slowMotionUntil = Date.now() + 5500;
                         jamMusic.currentTime = 0; jamMusic.play().catch(()=>{});
@@ -484,19 +558,21 @@
                         combo++;
                         bear.currentImg = bear.imgEating;
                         setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);
-                        createParticles(item.x + 20, item.y + 10);
+                        createParticles(item.x, item.y);
                         eatSound.currentTime = 0; eatSound.play().catch(()=>{});
                     }
                     items.splice(i, 1);
                     continue;
                 }
 
-                // Shield hanya berkurang saat koin lolos (bukan kena bom)
+                // Shield hanya berkurang saat koin lolos
                 if (item.y > canvas.height + 80) {
                     if (item.type === 'coin') {
                         if (shieldCharges > 0) {
                             shieldCharges--;
-                            createParticles(item.x + 20, item.y + 10, 12);
+                            createShieldBlockParticles(item.x, item.y);   // efek shield baru
+                            shieldSound.currentTime = 0;
+                            shieldSound.play().catch(() => {});
                             updateBellyPassUI();
                         } else {
                             gameOver();
@@ -508,6 +584,7 @@
                 }
             }
 
+            // Update & draw semua partikel
             for (let i = particles.length - 1; i >= 0; i--) {
                 particles[i].update();
                 particles[i].draw();
@@ -576,7 +653,8 @@
                 else { img.onload = done; img.onerror = done; }
             });
 
-            [bgMusic, eatSound, bombSound, jamMusic].forEach(a => a.load());
+            // Load semua audio termasuk yang baru
+            [bgMusic, eatSound, bombSound, jamMusic, magnetActivateSound, shieldSound].forEach(a => a.load());
         }
 
         window.addEventListener('DOMContentLoaded', () => {
