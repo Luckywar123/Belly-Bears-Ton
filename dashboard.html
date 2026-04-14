@@ -1,582 +1,571 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Belly Bears - Game</title>
+    <title>Dashboard - Belly Bears</title>
 
     <script src="supabase-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
+    <link rel="stylesheet" href="styles.css">
+
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; overflow: hidden; touch-action: none; }
-        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 5; }
 
-        #ingame-ui {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 15; pointer-events: none;
+        body {
+            margin: 0; padding: 0; min-height: 100vh;
+            background: url('assets/background-dashboard.png') no-repeat center center fixed;
+            background-size: cover;
+            font-family: system-ui, -apple-system, sans-serif;
         }
-        .stat {
-            position: absolute; color: white; font-weight: bold; font-size: 24px;
-            text-shadow: 0 0 10px rgba(0,0,0,0.9); z-index: 20;
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.65); z-index: -1;
         }
-        #scoreDisplay { top: 20px; left: 25px; }
-        #levelDisplay { top: 20px; right: 75px; color: #f1c40f; }
-        #comboDisplay { top: 65px; left: 25px; font-size: 20px; color: #ffeb3b; display: none; }
-        #bellyPassUI {
-            top: 110px; left: 25px; font-size: 18px; background: rgba(0,0,0,0.5);
-            padding: 6px 14px; border-radius: 9999px;
+        .card {
+            background: rgba(30, 40, 55, 0.92) !important;
+            backdrop-filter: blur(8px);
+            position: relative; z-index: 2;
         }
+        button { position: relative; z-index: 2; }
 
-        #magnetBtn {
-            position: absolute; bottom: 30px; right: 25px;
-            width: 70px; height: 70px;
-            background: rgba(0,0,0,0.75);
-            border: 4px solid #f39c12;
-            border-radius: 50%;
-            color: #f1c40f;
-            font-size: 36px;
-            display: none;
+        /* PROFILE CARD */
+        .profile-card {
+            background: rgba(30,40,55,0.92);
+            backdrop-filter: blur(8px);
+            border-radius: 20px;
+            margin: 0 16px 16px;
+            padding: 20px;
+            display: flex;
             align-items: center;
-            justify-content: center;
-            z-index: 40;
-            pointer-events: auto;
-            box-shadow: 0 0 25px rgba(243,156,18,0.7);
+            gap: 16px;
+            border: 1px solid rgba(243,156,18,0.25);
         }
-        #magnetBtn:active { transform: scale(0.85); background: #f39c12; color: #000; }
+        .profile-avatar {
+            width: 70px; height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.2rem; flex-shrink: 0;
+            border: 3px solid #f39c12;
+        }
+        .profile-info { flex: 1; }
+        .profile-name {
+            color: #f39c12; font-size: 1.25rem; font-weight: 700;
+            margin: 0 0 4px 0;
+        }
+        .profile-username {
+            color: #aaa; font-size: 0.9rem; margin: 0 0 6px 0;
+        }
+        .player-id-badge {
+            display: inline-block;
+            background: rgba(243,156,18,0.15);
+            border: 1px solid rgba(243,156,18,0.35);
+            color: #f1c40f;
+            font-size: 0.78rem;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            font-family: monospace;
+        }
 
-        canvas { cursor: none; touch-action: none; }
+        /* REFERRAL SECTION */
+        .referral-box {
+            background: rgba(30,40,55,0.92);
+            backdrop-filter: blur(8px);
+            border-radius: 20px;
+            margin: 0 16px 16px;
+            padding: 20px;
+            border: 1px solid rgba(243,156,18,0.2);
+        }
+        .referral-box h3 {
+            color: #f39c12; margin: 0 0 14px 0; font-size: 1.1rem;
+        }
+        .ref-code-display {
+            background: rgba(0,0,0,0.4);
+            border: 1.5px dashed rgba(243,156,18,0.5);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .ref-code-text {
+            color: #f1c40f; font-size: 1.3rem;
+            font-family: 'Courier New', monospace;
+            font-weight: bold; letter-spacing: 3px;
+        }
+        .copy-btn {
+            background: rgba(243,156,18,0.2);
+            border: 1px solid rgba(243,156,18,0.4);
+            color: #f39c12;
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.15s;
+        }
+        .copy-btn:active { background: rgba(243,156,18,0.4); }
+        .ref-stats {
+            display: flex; gap: 10px;
+        }
+        .ref-stat-box {
+            flex: 1; background: rgba(0,0,0,0.3);
+            border-radius: 12px; padding: 10px;
+            text-align: center;
+        }
+        .ref-stat-box .num { color: #f1c40f; font-size: 1.4rem; font-weight: bold; }
+        .ref-stat-box .label { color: #888; font-size: 0.78rem; margin-top: 2px; }
 
-        #countdown-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.75); display: none;
-            justify-content: center; align-items: center;
-            z-index: 200; flex-direction: column;
+        /* INPUT REFERRAL */
+        .ref-input-section {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255,255,255,0.08);
         }
-        #countdown-number {
-            font-size: 160px; color: #f39c12; font-weight: bold;
-            text-shadow: 0 0 60px #f39c12, 0 0 20px #fff;
-            transition: transform 0.15s ease, opacity 0.15s ease;
-            line-height: 1;
+        .ref-input-section p {
+            color: #aaa; font-size: 0.88rem; margin: 0 0 8px 0;
+            text-align: left;
         }
-
-        #game-over-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.92); z-index: 300;
-            flex-direction: column; justify-content: center; align-items: center;
-            color: white; text-align: center;
+        .ref-input-row {
+            display: flex; gap: 8px;
         }
-        #game-over-overlay h1 { font-size: 3.2rem; color: #f39c12; margin: 0 0 10px 0; text-shadow: 0 0 30px #f39c12; }
-        .final-score { font-size: 5rem; font-weight: bold; color: #f1c40f; margin: 5px 0; text-shadow: 0 0 20px #f1c40f88; }
-        .go-btn {
-            padding: 14px 32px; font-size: 1.2rem; border: none; border-radius: 12px;
-            cursor: pointer; font-weight: 700; transition: transform 0.1s;
+        .ref-input {
+            flex: 1; background: rgba(0,0,0,0.4);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            border-radius: 10px; padding: 10px 14px;
+            color: white; font-size: 1rem;
+            letter-spacing: 2px; text-transform: uppercase;
+            outline: none;
         }
-        .go-btn:active { transform: scale(0.96); }
+        .ref-input:focus { border-color: #f39c12; }
+        .ref-submit-btn {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            border: none; border-radius: 10px;
+            color: #000; font-weight: 700;
+            padding: 10px 18px; cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .ref-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ref-msg { font-size: 0.85rem; margin-top: 8px; min-height: 18px; }
+        .ref-msg.success { color: #2ecc71; }
+        .ref-msg.error { color: #e74c3c; }
     </style>
 </head>
 <body>
 
-    <div id="loading-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#1a1a1a;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:500;">
-        <img src="assets/ICON.png" alt="Belly Bears" style="width:130px;height:130px;margin-bottom:25px;">
-        <h2 style="color:#f39c12;margin:0 0 20px 0;font-size:1.8rem;">Loading Assets...</h2>
-        <div style="width:220px;height:10px;background:#333;border-radius:9999px;overflow:hidden;">
-            <div id="loading-bar" style="width:0%;height:100%;background:linear-gradient(to right,#f39c12,#f1c40f);transition:width 0.4s;"></div>
-        </div>
-        <p id="loading-text" style="color:#aaa;margin-top:12px;font-size:1rem;">Preparing game...</p>
+    <!-- HEADER -->
+    <div style="text-align:center;margin:20px 0 20px 0;position:relative;z-index:2;">
+        <img src="assets/ICON.png" alt="Belly Bears" style="width:80px;height:80px;object-fit:contain;">
+        <h1 style="color:#f39c12;margin:10px 0 2px 0;font-size:2rem;letter-spacing:3px;">BELLY BEARS</h1>
+        <h2 style="color:#f39c12;margin:0;font-size:1.1rem;font-weight:500;opacity:0.8;">DASHBOARD</h2>
     </div>
 
-    <canvas id="gameCanvas"></canvas>
-
-    <div id="ingame-ui">
-        <div class="stat" id="scoreDisplay">Score: 0</div>
-        <div class="stat" id="levelDisplay">Level 1</div>
-        <div class="stat" id="comboDisplay">Combo ×1.5</div>
-        <div id="bellyPassUI" class="stat"></div>
-        <button id="pauseBtn" style="position:absolute;top:20px;right:25px;font-size:32px;color:white;background:none;border:none;cursor:pointer;pointer-events:auto;z-index:30;">⏸</button>
-        <button id="magnetBtn">🧲</button>
-    </div>
-
-    <div id="countdown-screen">
-        <div id="countdown-number">3</div>
-    </div>
-
-    <div id="game-over-overlay">
-        <h1>GAME OVER</h1>
-        <p style="font-size:1.4rem;margin:4px 0 0 0;color:#aaa;">Final Score</p>
-        <div class="final-score" id="go-score">0</div>
-        <p style="font-size:1.2rem;margin:4px 0 24px 0;color:#ccc;">Coins Caught: <span id="go-coins">0</span></p>
-        <div style="display:flex;gap:16px;">
-            <button class="go-btn" onclick="restartGame()" style="background:#f39c12;color:#000;">▶ PLAY AGAIN</button>
-            <button class="go-btn" onclick="backToMenu()" style="background:#444;color:#fff;">⬅ MENU</button>
+    <!-- PROFILE CARD -->
+    <div class="profile-card" id="profile-card">
+        <div class="profile-avatar" id="profile-avatar">🐻</div>
+        <div class="profile-info">
+            <p class="profile-name" id="profile-name">Loading...</p>
+            <p class="profile-username" id="profile-username">@...</p>
+            <span class="player-id-badge" id="player-id-badge">ID: ---</span>
         </div>
     </div>
+
+    <!-- BELLY PASS STATUS -->
+    <div class="card" style="margin:0 16px 16px;border-radius:20px;padding:18px;">
+        <h2 style="margin:0 0 12px 0;font-size:1.1rem;">🎟️ Belly Pass Status</h2>
+        <div id="belly-pass-status" style="padding:12px;background:#1f2a38;border-radius:12px;text-align:center;min-height:60px;">
+            <p id="pass-text" style="margin:0;font-size:1rem;color:#f1c40f;">Loading pass...</p>
+        </div>
+        <p style="color:#888;font-size:0.8rem;margin:10px 0 0 0;text-align:center;">
+            Buy Belly Pass at <a href="https://belly-bears.xyz" target="_blank" style="color:#f39c12;">belly-bears.xyz</a>
+        </p>
+    </div>
+
+    <!-- REFERRAL SECTION -->
+    <div class="referral-box">
+        <h3>🔗 Referral Program</h3>
+
+        <!-- Your code -->
+        <div class="ref-code-display">
+            <span class="ref-code-text" id="my-ref-code">------</span>
+            <button class="copy-btn" onclick="copyRefCode()">📋 Copy</button>
+        </div>
+
+        <div class="ref-stats">
+            <div class="ref-stat-box">
+                <div class="num" id="ref-total">0</div>
+                <div class="label">Friends Referred</div>
+            </div>
+            <div class="ref-stat-box">
+                <div class="num" id="ref-bonus">0</div>
+                <div class="label">Bonus Coins</div>
+            </div>
+        </div>
+
+        <!-- Input referral from friend -->
+        <div class="ref-input-section" id="ref-input-section">
+            <p>Enter a friend's referral code:</p>
+            <div class="ref-input-row">
+                <input class="ref-input" id="ref-input" type="text" placeholder="XXXXXX" maxlength="6">
+                <button class="ref-submit-btn" id="ref-submit-btn" onclick="submitReferral()">Apply</button>
+            </div>
+            <div class="ref-msg" id="ref-msg"></div>
+        </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="card" style="margin:0 16px 16px;border-radius:20px;padding:18px;">
+        <h2 style="margin:0 0 12px 0;font-size:1.1rem;">📊 Your Statistics</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div style="background:#1f2a38;border-radius:12px;padding:12px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:bold;color:#f1c40f;" id="finalscore">0</div>
+                <div style="color:#888;font-size:0.78rem;margin-top:4px;">Best Score</div>
+            </div>
+            <div style="background:#1f2a38;border-radius:12px;padding:12px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:bold;color:#f1c40f;" id="total-coins">0</div>
+                <div style="color:#888;font-size:0.78rem;margin-top:4px;">Total Coins</div>
+            </div>
+            <div style="background:#1f2a38;border-radius:12px;padding:12px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:bold;color:#f1c40f;" id="games-played">0</div>
+                <div style="color:#888;font-size:0.78rem;margin-top:4px;">Games Played</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOCIAL + GAME BUTTON -->
+    <div style="margin:0 16px 16px;display:flex;gap:10px;position:relative;z-index:2;">
+        <button onclick="window.open('https://x.com/belly_bears','_blank')"
+                style="flex:1;background:linear-gradient(135deg,#000,#1C1C1C);color:white;border:none;
+                       padding:14px;border-radius:9999px;font-weight:600;font-size:0.95rem;cursor:pointer;">
+            𝕏 X (Twitter)
+        </button>
+        <button onclick="window.open('https://belly-bears.xyz','_blank')"
+                style="flex:1;background:linear-gradient(135deg,#f39c12,#e67e22);color:white;border:none;
+                       padding:14px;border-radius:9999px;font-weight:600;font-size:0.95rem;cursor:pointer;">
+            🌐 Website
+        </button>
+    </div>
+
+    <button class="btn" onclick="window.location.href='index.html'"
+            style="width:calc(100% - 32px);margin:0 16px 8px;display:block;
+                   background:linear-gradient(135deg,#27ae60,#2ecc71);position:relative;z-index:2;">
+        🎮 Back to Game
+    </button>
+
+    <button class="btn" onclick="refreshDashboard()"
+            style="width:calc(100% - 32px);margin:0 16px 16px;display:block;
+                   background:#34495e;position:relative;z-index:2;">
+        🔄 Refresh Data
+    </button>
+
+    <!-- LEADERBOARD -->
+    <div class="card" style="margin:0 16px 16px;border-radius:20px;padding:18px;">
+        <h2 style="margin:0 0 16px 0;font-size:1.1rem;">🏆 Global Leaderboard</h2>
+        <div id="podium-container" class="podium-container"></div>
+        <div class="leaderboard-table">
+            <div class="table-header">
+                <span>Rank</span><span>Player</span><span>Score</span>
+            </div>
+            <div id="table-body"></div>
+        </div>
+        <div id="extra-stats" style="margin:16px 0 0 0;padding:12px;background:#1f2a38;border-radius:10px;font-size:0.95rem;color:#ccc;">
+            50th: <strong id="score-50" style="color:#f1c40f;">-</strong> &nbsp;|&nbsp;
+            100th: <strong id="score-100" style="color:#f1c40f;">-</strong>
+        </div>
+        <button class="btn" onclick="refreshLeaderboard()" style="width:100%;margin-top:12px;">
+            🔄 Refresh Leaderboard
+        </button>
+    </div>
+
+    <footer style="padding:16px;text-align:center;position:relative;z-index:2;">
+        <p style="color:#666;font-size:0.85rem;margin:0;">
+            © 2026 Belly Bears. All rights reserved.
+        </p>
+    </footer>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
-        tg.setHeaderColor("#1a1a1a");
+        tg.ready(); tg.expand(); tg.setHeaderColor("#1a1a1a");
 
         const sb = supabase.createClient(window.SUPABASE_CONFIG.URL, window.SUPABASE_CONFIG.ANON_KEY);
 
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
+        // Dashboard music
+        const dashboardMusic = new Audio('assets/bgm.m4a');
+        dashboardMusic.loop = true; dashboardMusic.volume = 0.62;
 
-        const ingameUI = document.getElementById("ingame-ui");
-        const countdownScreen = document.getElementById("countdown-screen");
-        const countdownNumber = document.getElementById("countdown-number");
-        const scoreDisplay = document.getElementById("scoreDisplay");
-        const levelDisplay = document.getElementById("levelDisplay");
-        const comboDisplay = document.getElementById("comboDisplay");
-        const bellyPassUI = document.getElementById("bellyPassUI");
-        const pauseBtn = document.getElementById("pauseBtn");
-        const magnetBtn = document.getElementById("magnetBtn");
-        const gameOverOverlay = document.getElementById("game-over-overlay");
+        let currentPlayerData = null;
 
-        let isPlaying = false, isPaused = false;
-        let score = 0, caughtCoins = 0, level = 1, combo = 0;
-        let speed = 3.5, spawnInterval = 850;
-        let spawnTimer, animFrameId = null;
-        let items = [], particles = [], leaves = [];
-        let slowMotionUntil = 0, magnetUntil = 0;
-
-        // Belly Pass
-        let bellyPass = null;
-        let shieldCharges = 0;        // Shield = jumlah koin yang boleh lolos
-        let doubleCoinsMultiplier = 1;
-
-        // Audio
-        const bgMusic = new Audio('assets/music-game.mp3'); bgMusic.loop = true; bgMusic.volume = 0.75;
-        const eatSound = new Audio('assets/suara-makan.m4a'); eatSound.volume = 0.55;
-        const bombSound = new Audio('assets/bom-bgm.m4a'); bombSound.volume = 0.65;
-        const jamMusic = new Audio('assets/jam-bgm.m4a');   // DIMATIKAN
-
-        // Bear
-        const bear = {
-            x: 0, y: 0, width: 90, height: 90,
-            imgPending: new Image(),
-            imgEating: new Image(),
-            currentImg: null
-        };
-        bear.imgPending.src = "assets/Beruang-pending.png";
-        bear.imgEating.src = "assets/Beruang-makan.png";
-        bear.currentImg = bear.imgPending;
-
-        const coinImg = new Image(); coinImg.src = "assets/coin.png";
-        const bombImg = new Image(); bombImg.src = "assets/bom.png";
-        const backgroundImg = new Image(); backgroundImg.src = "assets/Background-game.png";
-        const slowPowerImg = new Image(); slowPowerImg.src = "assets/slow-power.png";
-
-        class Leaf {
-            constructor(){ this.reset(); }
-            reset(){
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * -canvas.height * 1.5;
-                this.size = Math.random() * 9 + 4;
-                this.speed = Math.random() * 1.5 + 0.5;
-                this.wobble = Math.random() * Math.PI * 2;
-                this.wobbleSpeed = Math.random() * 0.08 + 0.04;
-                this.opacity = Math.random() * 0.5 + 0.2;
-            }
-            update(){
-                this.y += this.speed;
-                this.wobble += this.wobbleSpeed;
-                this.x += Math.sin(this.wobble) * 1.6;
-                if (this.y > canvas.height + 20) this.reset();
-            }
-            draw(){
-                ctx.save(); ctx.globalAlpha = this.opacity;
-                ctx.translate(this.x, this.y); ctx.rotate(Math.sin(this.wobble) * 0.45);
-                ctx.fillStyle = "#4ade80"; ctx.beginPath();
-                ctx.ellipse(0, 0, this.size, this.size * 0.58, 0, 0, Math.PI * 2);
-                ctx.fill(); ctx.restore();
-            }
-        }
-
-        class Particle {
-            constructor(x, y){
-                this.x = x; this.y = y;
-                this.vx = Math.random()*6-3; this.vy = Math.random()*-5-2;
-                this.life = 28;
-                this.color = `hsl(${Math.random()*40+40},100%,70%)`;
-            }
-            update(){ this.x += this.vx; this.y += this.vy; this.vy += 0.25; this.life--; }
-            draw(){
-                ctx.save(); ctx.globalAlpha = this.life / 28;
-                ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, 6, 6); ctx.restore();
-            }
-        }
-
-        function initLeaves(count = 25){ leaves = []; for(let i = 0; i < count; i++) leaves.push(new Leaf()); }
-
-        function resizeCanvas(){
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            bear.x = canvas.width / 2 - bear.width / 2;
-            bear.y = canvas.height - 165;
-        }
-
-        function updateBellyPassUI() {
-            if (!bellyPass) { bellyPassUI.style.display = 'none'; return; }
-            const magnetLeft = Math.max(0, Math.ceil((magnetUntil - Date.now()) / 1000));
-            let text = `Belly Pass `;
-            if (shieldCharges > 0) text += `🛡️ ${shieldCharges} `;
-            if (magnetLeft > 0) text += `🧲 ${magnetLeft}s `;
-            if (doubleCoinsMultiplier === 2) text += `💰 ×2`;
-            bellyPassUI.textContent = text.trim();
-            bellyPassUI.style.display = 'block';
-        }
-
-        async function loadBellyPass() {
+        // Ganti fungsi loadPlayerProfile() dengan yang ini
+        async function loadPlayerProfile() {
             const tgUser = tg.initDataUnsafe?.user;
-            if (!tgUser?.username) {
-                bellyPass = null;
-                magnetBtn.style.display = 'none';
+            if (!tgUser) {
+                document.getElementById('profile-name').textContent = 'Guest';
                 return;
             }
-            const username = tgUser.username;
 
-            const { data } = await sb.from('belly_passes')
-                .select('*')
-                .eq('telegram_username', username)
-                .eq('active', true)
-                .single();
+            const username = tgUser.username || tgUser.first_name || 'Player';
+            const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || username;
 
-            if (!data) {
-                bellyPass = null; shieldCharges = 0; magnetUntil = 0; doubleCoinsMultiplier = 1;
-                magnetBtn.style.display = 'none';
-                updateBellyPassUI(); return;
-            }
+            document.getElementById('profile-name').textContent = fullName;
+            document.getElementById('profile-username').textContent = tgUser.username ? `@${tgUser.username}` : `ID: ${tgUser.id}`;
 
-            bellyPass = data;
-            shieldCharges = bellyPass.power_ups?.shield || 0;
-            doubleCoinsMultiplier = bellyPass.power_ups?.combo_master === true ? 2 : 1;
-            magnetUntil = 0;
-
-            magnetBtn.style.display = bellyPass.power_ups?.coin_magnet ? 'flex' : 'none';
-            updateBellyPassUI();
-        }
-
-        function activateMagnet() {
-            if (!bellyPass || !bellyPass.power_ups?.coin_magnet || magnetUntil > Date.now()) return;
-            magnetUntil = Date.now() + 60000;
-            updateBellyPassUI();
-        }
-
-        async function saveScore(finalScore, coinsCaught) {
-            const tgUser = tg.initDataUnsafe?.user;
-            const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
             try {
-                const { data: existing } = await sb
-                    .from('highscores')
-                    .select('best_score, total_coins, games_played')
+                // Cek dulu apakah sudah ada
+                let { data: player, error: selectError } = await sb
+                    .from('players')
+                    .select('*')
                     .eq('telegram_username', username)
                     .maybeSingle();
 
-                const newBest = existing ? Math.max(existing.best_score || 0, finalScore) : finalScore;
-                const newCoins = (existing?.total_coins || 0) + coinsCaught;
-                const newGames = (existing?.games_played || 0) + 1;
+                if (selectError) throw selectError;
 
-                await sb.from('highscores').upsert({
-                    telegram_username: username,
-                    username: username,
-                    best_score: newBest,
-                    total_coins: newCoins,
-                    games_played: newGames,
-                    last_score: finalScore
-                }, { onConflict: 'telegram_username' });
+                if (!player) {
+                    // Buat baru
+                    const playerId = generatePlayerId();
+                    const refCode = generateRefCode();
+
+                    const { data: newPlayer, error: insertError } = await sb
+                        .from('players')
+                        .insert({
+                            telegram_username: username,
+                            telegram_id: String(tgUser.id || ''),
+                            display_name: fullName,
+                            player_id: playerId,
+                            referral_code: refCode,
+                            referred_by: null
+                        })
+                        .select()
+                        .single();
+
+                    if (insertError) throw insertError;
+                    player = newPlayer;
+
+                    console.log("✅ Player baru dibuat:", player);
+                } else {
+                    console.log("✅ Player sudah ada:", player);
+                }
+
+                // Update UI
+                currentPlayerData = player;
+                document.getElementById('player-id-badge').textContent = `ID: ${player.player_id}`;
+                document.getElementById('my-ref-code').textContent = player.referral_code;
+                document.getElementById('ref-total').textContent = player.referral_count || 0;
+                document.getElementById('ref-bonus').textContent = player.bonus_coins || 0;
+
+                if (player.referred_by) {
+                    const refSection = document.getElementById('ref-input-section');
+                    refSection.innerHTML = `<p style="color:#2ecc71;font-size:0.88rem;margin:0;">
+                        ✅ Referred by <strong>${player.referred_by}</strong></p>`;
+                }
+
             } catch (err) {
-                console.error("Save score error:", err);
+                console.error("❌ Error loadPlayerProfile:", err);
+                document.getElementById('player-id-badge').innerHTML = 
+                    `<span style="color:#e74c3c">Error: ${err.message}</span>`;
+            }
+
+            await loadUserStats(username);
+        }
+
+        function generatePlayerId() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let id = 'BB';
+            for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
+            return id;
+        }
+
+        function generateRefCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+            return code;
+        }
+
+        async function loadUserStats(username) {
+            const { data } = await sb
+                .from('highscores')
+                .select('best_score, total_coins, games_played')
+                .eq('telegram_username', username)
+                .maybeSingle();
+
+            document.getElementById('finalscore').textContent = data?.best_score || 0;
+            document.getElementById('total-coins').textContent = data?.total_coins || 0;
+            document.getElementById('games-played').textContent = data?.games_played || 0;
+        }
+
+        // ====================== REFERRAL ======================
+        function copyRefCode() {
+            const code = document.getElementById('my-ref-code').textContent;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(code).then(() => showToast('Referral code copied!'));
+            } else {
+                // Fallback
+                const el = document.createElement('textarea');
+                el.value = code; document.body.appendChild(el);
+                el.select(); document.execCommand('copy'); document.body.removeChild(el);
+                showToast('Referral code copied!');
             }
         }
 
-        function setupControls() {
-            const moveBear = (clientX) => {
-                if (!isPlaying || isPaused) return;
-                bear.x = Math.max(0, Math.min(canvas.width - bear.width, clientX - bear.width / 2));
-            };
-
-            canvas.addEventListener("touchmove", (e) => {
-                e.preventDefault();
-                moveBear(e.touches[0].clientX);
-            }, { passive: false });
-
-            canvas.addEventListener("mousemove", (e) => {
-                const rect = canvas.getBoundingClientRect();
-                moveBear(e.clientX - rect.left);
-            });
-
-            magnetBtn.addEventListener('click', activateMagnet);
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.textContent = msg;
+            toast.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+                background:#f39c12;color:#000;padding:10px 24px;border-radius:9999px;
+                font-weight:700;z-index:9999;font-size:0.9rem;pointer-events:none;`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
         }
 
-        function startCountdown(callback) {
-            countdownScreen.style.display = 'flex';
-            countdownNumber.style.opacity = '1';
-            countdownNumber.style.transform = 'scale(1)';
-            countdownNumber.textContent = '3';
+        async function submitReferral() {
+            if (!currentPlayerData) return;
 
-            countdownNumber.animate([
-                { transform: 'scale(0.3)', opacity: 0 },
-                { transform: 'scale(1.3)', opacity: 1, offset: 0.6 },
-                { transform: 'scale(1)', opacity: 1 }
-            ], { duration: 500, fill: 'forwards' });
+            const code = document.getElementById('ref-input').value.trim().toUpperCase();
+            const msgEl = document.getElementById('ref-msg');
+            const btn = document.getElementById('ref-submit-btn');
+
+            if (code.length !== 6) {
+                msgEl.textContent = 'Code must be 6 characters.';
+                msgEl.className = 'ref-msg error'; return;
+            }
+            if (code === currentPlayerData.referral_code) {
+                msgEl.textContent = "You can't use your own code!";
+                msgEl.className = 'ref-msg error'; return;
+            }
+            if (currentPlayerData.referred_by) {
+                msgEl.textContent = 'You already used a referral code.';
+                msgEl.className = 'ref-msg error'; return;
+            }
+
+            btn.disabled = true;
+            msgEl.textContent = 'Checking...';
+            msgEl.className = 'ref-msg';
+
+            // Cari pemilik kode
+            const { data: referrer } = await sb
+                .from('players')
+                .select('telegram_username, referral_count, bonus_coins')
+                .eq('referral_code', code)
+                .maybeSingle();
+
+            if (!referrer) {
+                msgEl.textContent = 'Invalid referral code.';
+                msgEl.className = 'ref-msg error';
+                btn.disabled = false; return;
+            }
+
+            // Update current player: set referred_by
+            await sb.from('players')
+                .update({ referred_by: code })
+                .eq('telegram_username', currentPlayerData.telegram_username);
+
+            // Update referrer: increment count & bonus
+            await sb.from('players')
+                .update({
+                    referral_count: (referrer.referral_count || 0) + 1,
+                    bonus_coins: (referrer.bonus_coins || 0) + 50
+                })
+                .eq('telegram_username', referrer.telegram_username);
+
+            currentPlayerData.referred_by = code;
+            msgEl.textContent = '✅ Referral applied! Your friend gets +50 bonus coins.';
+            msgEl.className = 'ref-msg success';
 
             setTimeout(() => {
-                countdownNumber.animate([
-                    { transform: 'scale(1)', opacity: 1 },
-                    { transform: 'scale(2)', opacity: 0 }
-                ], { duration: 300, fill: 'forwards' });
-
-                setTimeout(() => {
-                    countdownScreen.style.display = 'none';
-                    callback();
-                }, 300);
-            }, 700);
+                const refSection = document.getElementById('ref-input-section');
+                refSection.innerHTML = `<p style="color:#2ecc71;font-size:0.88rem;margin:0;">
+                    ✅ Referred by code <strong>${code}</strong></p>`;
+            }, 1500);
         }
 
-        function resetGameState() {
-            if (spawnTimer) clearInterval(spawnTimer);
-            if (animFrameId) cancelAnimationFrame(animFrameId);
-            isPlaying = false; isPaused = false;
-            score = caughtCoins = combo = 0;
-            level = 1; speed = 3.5; spawnInterval = 850;
-            slowMotionUntil = 0; magnetUntil = 0;
-            items = []; particles = [];
-            bear.currentImg = bear.imgPending;
-            scoreDisplay.textContent = "Score: 0";
-            levelDisplay.textContent = "Level 1";
-            comboDisplay.style.display = 'none';
-            pauseBtn.textContent = '⏸';
-        }
+        // ====================== BELLY PASS ======================
+        async function loadBellyPassDashboard() {
+            const tgUser = tg.initDataUnsafe?.user;
+            const username = tgUser?.username;
+            const el = document.getElementById('pass-text');
 
-        async function startActualGame() {
-            resetGameState();
-            resizeCanvas();
-            initLeaves(25);
-
-            gameOverOverlay.style.display = 'none';
-            ingameUI.style.display = 'block';
-            canvas.style.opacity = "1";
-
-            isPlaying = true;
-            spawnTimer = setInterval(spawnItem, spawnInterval);
-            bear.currentImg = bear.imgPending;
-
-            await loadBellyPass();
-            updateBellyPassUI();
-
-            bgMusic.play().catch(() => {});
-            animFrameId = requestAnimationFrame(update);
-        }
-
-        function spawnItem() {
-            if (!isPlaying || isPaused) return;
-            const rand = Math.random();
-            let type = 'coin';
-            if (rand < 0.25) type = 'bomb';
-            else if (rand < 0.32) type = 'slow';
-            items.push({ x: Math.random() * (canvas.width - 60), y: -70, size: 50, type });
-        }
-
-        function createParticles(x, y, count = 12) {
-            for (let i = 0; i < count; i++) particles.push(new Particle(x + 20, y + 20));
-        }
-
-        function updateDifficulty() {
-            const newLevel = Math.floor(score / 200) + 1;
-            levelDisplay.textContent = `Level ${newLevel}`;
-            if (newLevel !== level) {
-                level = newLevel;
-                speed = Math.min(3.5 + (level - 1) * 0.3, 9.5);
-                spawnInterval = Math.max(850 - (level - 1) * 60, 380);
-                if (spawnTimer) clearInterval(spawnTimer);
-                spawnTimer = setInterval(spawnItem, spawnInterval);
-            }
-        }
-
-        function drawScene() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (backgroundImg.complete) ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
-            else { ctx.fillStyle = "#0f2a1f"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-            leaves.forEach(leaf => leaf.draw());
-        }
-
-        function update() {
-            if (!isPlaying) return;
-
-            if (isPaused) {
-                drawScene();
-                items.forEach(item => {
-                    if (item.type === 'bomb') ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
-                    else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
-                    else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
-                });
-                particles.forEach(p => p.draw());
-                ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
-                updateBellyPassUI();
-                animFrameId = requestAnimationFrame(update);
+            if (!username) {
+                el.innerHTML = '❌ Telegram username not detected.';
                 return;
             }
 
-            drawScene();
-            leaves.forEach(leaf => leaf.update());
+            const cleanUsername = username.replace('@', '').toLowerCase();
+            const { data, error } = await sb
+                .from('belly_passes')
+                .select('power_ups, expiry_date, active')
+                .eq('active', true)
+                .or(`telegram_username.ilike.%${cleanUsername}%,telegram_username.ilike.%@${cleanUsername}%`)
+                .order('created_at', { ascending: false })
+                .limit(1);
 
-            const now = Date.now();
-            const isMagnetActive = now < magnetUntil;
-            const isSlow = now < slowMotionUntil;
-            const currentSpeed = isSlow ? speed * 0.45 : speed;
-
-            if (isMagnetActive) {
-                items.forEach(item => {
-                    if (item.type !== 'coin') return;
-                    const dx = bear.x + bear.width/2 - (item.x + item.size/2);
-                    const dy = bear.y + bear.height/2 - (item.y + item.size/2);
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist < 350 && dist > 5) {
-                        item.x += dx * 0.32;
-                        item.y += dy * 0.32;
-                    }
-                });
+            if (error || !data || data.length === 0) {
+                el.innerHTML = `❌ No Active Pass for <strong>@${username}</strong>`;
+                return;
             }
 
-            for (let i = items.length - 1; i >= 0; i--) {
-                const item = items[i];
-                item.y += currentSpeed;
-
-                if (item.type === 'bomb') {
-                    ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
-                } else if (item.type === 'slow') {
-                    ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
-                } else {
-                    ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
-                }
-
-                const hit = item.y + item.size > bear.y && item.y < bear.y + bear.height &&
-                            item.x + item.size > bear.x && item.x < bear.x + bear.width;
-
-                if (hit) {
-                    if (item.type === 'bomb') {
-                        bombSound.currentTime = 0;
-                        bombSound.play().catch(() => {});
-                        createParticles(item.x + 20, item.y + 10, 8);
-                    } else if (item.type === 'slow') {
-                        slowMotionUntil = Date.now() + 5500;
-                    } else {
-                        score += Math.floor(15 * doubleCoinsMultiplier);
-                        caughtCoins++;
-                        combo++;
-                        bear.currentImg = bear.imgEating;
-                        setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);
-                        createParticles(item.x + 20, item.y + 10);
-                        eatSound.currentTime = 0;
-                        eatSound.play().catch(()=>{});
-                    }
-                    items.splice(i, 1);
-                    continue;
-                }
-
-                // KOIN LOLOS → Shield berkurang
-                if (item.y > canvas.height + 80) {
-                    if (item.type === 'coin') {
-                        if (shieldCharges > 0) {
-                            shieldCharges--;
-                            updateBellyPassUI();
-                        } else {
-                            gameOver();
-                            return;
-                        }
-                    }
-                    items.splice(i, 1);
-                }
-            }
-
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update();
-                particles[i].draw();
-                if (particles[i].life <= 0) particles.splice(i, 1);
-            }
-
-            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
-
-            scoreDisplay.textContent = `Score: ${score}`;
-            updateDifficulty();
-            updateBellyPassUI();
-
-            comboDisplay.style.display = combo >= 3 ? 'block' : 'none';
-            if (combo >= 3) comboDisplay.textContent = `Combo ×1.5`;
-
-            animFrameId = requestAnimationFrame(update);
+            const pass = data[0];
+            let html = `<strong style="color:#2ecc71;">✅ Belly Pass Active</strong><br>`;
+            html += `<span style="color:#aaa;font-size:0.85rem;">Expires: ${new Date(pass.expiry_date).toLocaleDateString('id-ID')}</span><br><br>`;
+            if (pass.power_ups?.shield) html += `🛡️ Shield: ${pass.power_ups.shield} charges<br>`;
+            if (pass.power_ups?.coin_magnet) html += `🧲 Coin Magnet (1 min)<br>`;
+            if (pass.power_ups?.combo_master) html += `💰 Double Coins Active<br>`;
+            el.innerHTML = html;
         }
 
-        function gameOver() {
-            if (!isPlaying) return;
-            isPlaying = false;
-            if (spawnTimer) clearInterval(spawnTimer);
-            if (animFrameId) cancelAnimationFrame(animFrameId);
+        // ====================== LEADERBOARD ======================
+        async function refreshLeaderboard() {
+            const { data: lb } = await sb
+                .from('highscores')
+                .select('*')
+                .order('best_score', { ascending: false })
+                .limit(100);
 
-            saveScore(score, caughtCoins);
+            if (!lb || lb.length === 0) return;
 
-            canvas.style.opacity = "0.3";
-            ingameUI.style.display = 'none';
-
-            document.getElementById('go-score').textContent = score;
-            document.getElementById('go-coins').textContent = caughtCoins;
-            gameOverOverlay.style.display = 'flex';
-        }
-
-        function restartGame() {
-            gameOverOverlay.style.display = 'none';
-            canvas.style.opacity = '1';
-            startCountdown(() => startActualGame());
-        }
-
-        function backToMenu() {
-            window.location.href = 'index.html';
-        }
-
-        function preloadAllAssets(callback) {
-            const images = [bear.imgPending, bear.imgEating, coinImg, bombImg, backgroundImg, slowPowerImg];
-            let loaded = 0;
-            const total = images.length;
-
-            function done() {
-                loaded++;
-                const pct = Math.floor((loaded / total) * 100);
-                document.getElementById("loading-bar").style.width = pct + "%";
-                document.getElementById("loading-text").textContent = `Loading ${loaded}/${total}...`;
-                if (loaded === total) {
-                    document.getElementById("loading-text").textContent = "Game Ready!";
-                    const ls = document.getElementById("loading-screen");
-                    ls.style.transition = "opacity 0.5s";
-                    ls.style.opacity = "0";
-                    setTimeout(() => { ls.style.display = "none"; callback(); }, 500);
-                }
-            }
-
-            images.forEach(img => {
-                if (img.complete) done();
-                else { img.onload = done; img.onerror = done; }
+            // Podium
+            const podium = document.getElementById('podium-container');
+            podium.innerHTML = '';
+            const medals = ['🥇','🥈','🥉'];
+            const pos = ['first','second','third'];
+            lb.slice(0, 3).forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = `podium-item ${pos[i]}`;
+                div.innerHTML = `
+                    <div class="podium-rank">${i+1}</div>
+                    <div class="podium-avatar">🐻</div>
+                    <div class="podium-name">${p.username || 'Bear'}</div>
+                    <div class="podium-score">${p.best_score}</div>
+                    <div class="medal">${medals[i]}</div>`;
+                podium.appendChild(div);
             });
 
-            bgMusic.load();
-            eatSound.load();
-            bombSound.load();
+            // Table top 20
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            lb.slice(0, 20).forEach((p, i) => {
+                const row = document.createElement('div');
+                row.className = 'table-row';
+                row.innerHTML = `
+                    <span class="rank">${i+1}</span>
+                    <span class="player">${p.username || 'Bear'}</span>
+                    <span class="score">${p.best_score}</span>`;
+                tbody.appendChild(row);
+            });
+
+            document.getElementById('score-50').textContent = lb[49]?.best_score || '-';
+            document.getElementById('score-100').textContent = lb[99]?.best_score || '-';
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            resizeCanvas();
-            setupControls();
-            preloadAllAssets(() => {
-                startCountdown(() => startActualGame());
-            });
-        });
+        async function refreshDashboard() {
+            await loadPlayerProfile();
+            await refreshLeaderboard();
+            await loadBellyPassDashboard();
+        }
 
-        pauseBtn.addEventListener('click', () => {
-            isPaused = !isPaused;
-            pauseBtn.textContent = isPaused ? '▶' : '⏸';
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshDashboard();
+            dashboardMusic.play().catch(() => {});
         });
     </script>
 </body>
