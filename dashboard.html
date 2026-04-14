@@ -299,40 +299,54 @@
         // Ganti fungsi loadPlayerProfile() dengan yang ini
         async function loadPlayerProfile() {
             const tgUser = tg.initDataUnsafe?.user;
-            if (!tgUser) return;
+            if (!tgUser) {
+                document.getElementById('profile-name').textContent = 'Guest';
+                return;
+            }
 
             const username = tgUser.username || tgUser.first_name || 'Player';
-            const fullName = tgUser.first_name && tgUser.last_name 
-                ? `${tgUser.first_name} ${tgUser.last_name}` 
-                : tgUser.first_name || username;
+            const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || username;
 
             document.getElementById('profile-name').textContent = fullName;
             document.getElementById('profile-username').textContent = tgUser.username ? `@${tgUser.username}` : `ID: ${tgUser.id}`;
 
-            // Upsert player
-            let { data: player, error } = await sb
-                .from('players')
-                .select('*')
-                .eq('telegram_username', username)
-                .maybeSingle();
+            try {
+                // Cek dulu apakah sudah ada
+                let { data: player, error: selectError } = await sb
+                    .from('players')
+                    .select('*')
+                    .eq('telegram_username', username)
+                    .maybeSingle();
 
-            if (!player) {
-                const playerId = generatePlayerId();
-                const refCode = generateRefCode();
+                if (selectError) throw selectError;
 
-                const { data: newPlayer } = await sb.from('players').insert({
-                    telegram_username: username,
-                    telegram_id: String(tgUser.id || ''),
-                    display_name: fullName,
-                    player_id: playerId,
-                    referral_code: refCode,
-                    referred_by: null
-                }).select().single();
+                if (!player) {
+                    // Buat baru
+                    const playerId = generatePlayerId();
+                    const refCode = generateRefCode();
 
-                player = newPlayer;
-            }
+                    const { data: newPlayer, error: insertError } = await sb
+                        .from('players')
+                        .insert({
+                            telegram_username: username,
+                            telegram_id: String(tgUser.id || ''),
+                            display_name: fullName,
+                            player_id: playerId,
+                            referral_code: refCode,
+                            referred_by: null
+                        })
+                        .select()
+                        .single();
 
-            if (player) {
+                    if (insertError) throw insertError;
+                    player = newPlayer;
+
+                    console.log("✅ Player baru dibuat:", player);
+                } else {
+                    console.log("✅ Player sudah ada:", player);
+                }
+
+                // Update UI
                 currentPlayerData = player;
                 document.getElementById('player-id-badge').textContent = `ID: ${player.player_id}`;
                 document.getElementById('my-ref-code').textContent = player.referral_code;
@@ -344,6 +358,11 @@
                     refSection.innerHTML = `<p style="color:#2ecc71;font-size:0.88rem;margin:0;">
                         ✅ Referred by <strong>${player.referred_by}</strong></p>`;
                 }
+
+            } catch (err) {
+                console.error("❌ Error loadPlayerProfile:", err);
+                document.getElementById('player-id-badge').innerHTML = 
+                    `<span style="color:#e74c3c">Error: ${err.message}</span>`;
             }
 
             await loadUserStats(username);
