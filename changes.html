@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Belly Bears - Game</title>
+
+    <script src="supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script> 
+
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background: #000;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 5;
+        }
+        #ingame-ui {
+            display: none;
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 15;
+            pointer-events: none;
+        }
+        .stat {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            text-shadow: 0 0 10px rgba(0,0,0,0.9);
+            z-index: 20;
+        }
+        #scoreDisplay { top: 20px; left: 25px; }
+        #levelDisplay { top: 20px; right: 75px; color: #f1c40f; }
+        #comboDisplay { 
+            top: 65px; left: 25px; 
+            font-size: 20px; color: #ffeb3b; 
+            display: none; 
+        }
+        #bellyPassUI {
+            top: 110px; left: 25px; 
+            font-size: 18px; 
+            background: rgba(0,0,0,0.5); 
+            padding: 6px 14px; 
+            border-radius: 9999px;
+            display: none;
+        }
+        #countdown-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.92); display: none; justify-content: center; align-items: center;
+            z-index: 100; font-size: 140px; color: #f39c12; font-weight: bold;
+            text-shadow: 0 0 40px #f39c12;
+        }
+        canvas { cursor: none; touch-action: none; }
+    </style>
+</head>
+<body>
+
+    <!-- LOADING SCREEN -->
+    <div id="loading-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#1a1a1a;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:200;">
+        <img src="assets/ICON.png" alt="Belly Bears" style="width:130px;height:130px;margin-bottom:25px;">
+        <h2 style="color:#f39c12;margin:0 0 20px 0;font-size:1.8rem;">Loading Assets...</h2>
+        <div style="width:220px;height:10px;background:#333;border-radius:9999px;overflow:hidden;">
+            <div id="loading-bar" style="width:0%;height:100%;background:linear-gradient(to right,#f39c12,#f1c40f);transition:width 0.4s;"></div>
+        </div>
+        <p id="loading-text" style="color:#aaa;margin-top:12px;font-size:1rem;">Preparing game...</p>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- IN-GAME UI -->
+    <div id="ingame-ui">
+        <div class="stat" id="scoreDisplay">Score: 0</div>
+        <div class="stat" id="levelDisplay">Level 1</div>
+        <div class="stat" id="comboDisplay">Combo ×1.5</div>
+        <div id="bellyPassUI" class="stat"></div>
+        <button id="pauseBtn" style="position:absolute;top:20px;right:25px;font-size:32px;color:white;background:none;border:none;cursor:pointer;pointer-events:auto;">⏸</button>
+    </div>
+
+    <!-- COUNTDOWN -->
+    <div id="countdown-screen"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor("#1a1a1a");
+
+        const sb = supabase.createClient(window.SUPABASE_CONFIG.URL, window.SUPABASE_CONFIG.ANON_KEY);
+
+        let tonConnectUI = null;
+
+        // DOM
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const ingameUI = document.getElementById("ingame-ui");
+        const countdownScreen = document.getElementById("countdown-screen");
+        const scoreDisplay = document.getElementById("scoreDisplay");
+        const levelDisplay = document.getElementById("levelDisplay");
+        const comboDisplay = document.getElementById("comboDisplay");
+        const bellyPassUI = document.getElementById("bellyPassUI");
+        const pauseBtn = document.getElementById("pauseBtn");
+
+        // Game Variables
+        let isPlaying = false, isPaused = false;
+        let score = 0, caughtCoins = 0, level = 1, combo = 0, lastComboTime = 0;
+        let speed = 3.5, spawnInterval = 850;
+        let spawnTimer;
+        let items = [], particles = [], leaves = [];
+        let slowMotionUntil = 0;
+        let audioUnlocked = false;
+
+        // === BELLY PASS VARIABLES ===
+        let bellyPass = null;
+        let shieldCharges = 0;
+        let magnetUntil = 0;
+        let doubleCoinsMultiplier = 1;
+
+        // Audio
+        const bgMusic = new Audio('assets/music-game.mp3');
+        bgMusic.loop = true; bgMusic.volume = 0.75;
+
+        const eatSound = new Audio('assets/suara-makan.m4a');
+        eatSound.volume = 0.55;
+
+        const bombSound = new Audio('assets/bom-bgm.m4a');
+        bombSound.volume = 0.65;
+
+        const jamMusic = new Audio('assets/jam-bgm.m4a');
+        jamMusic.volume = 0.55;
+
+        // Bear
+        const bear = {
+            x: 0, y: 0, width: 90, height: 90,
+            imgPending: new Image(),
+            imgEating: new Image(),
+            currentImg: null
+        };
+        bear.imgPending.src = "assets/Beruang-pending.png";
+        bear.imgEating.src = "assets/Beruang-makan.png";
+        bear.currentImg = bear.imgPending;
+
+        // Images
+        const coinImg = new Image(); coinImg.src = "assets/coin.png";
+        const bombImg = new Image(); bombImg.src = "assets/bom.png";
+        const backgroundImg = new Image(); backgroundImg.src = "assets/Background-game.png";
+        const slowPowerImg = new Image(); slowPowerImg.src = "assets/slow-power.png";
+
+        // Leaf & Particle Classes
+        class Leaf {
+            constructor(){ this.reset(); }
+            reset(){
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * -canvas.height * 1.5;
+                this.size = Math.random() * 9 + 4;
+                this.speed = Math.random() * 1.5 + 0.5;
+                this.wobble = Math.random() * Math.PI * 2;
+                this.wobbleSpeed = Math.random() * 0.08 + 0.04;
+                this.opacity = Math.random() * 0.5 + 0.2;
+            }
+            update(){
+                this.y += this.speed;
+                this.wobble += this.wobbleSpeed;
+                this.x += Math.sin(this.wobble) * 1.6;
+                if (this.y > canvas.height + 20) this.reset();
+            }
+            draw(){
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(Math.sin(this.wobble) * 0.45);
+                ctx.fillStyle = "#4ade80";
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size, this.size * 0.58, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y){
+                this.x = x; this.y = y;
+                this.vx = Math.random()*6-3;
+                this.vy = Math.random()*-5-2;
+                this.life = 28;
+                this.color = `hsl(${Math.random()*40+40},100%,70%)`;
+            }
+            update(){ 
+                this.x += this.vx; 
+                this.y += this.vy; 
+                this.vy += 0.25; 
+                this.life--; 
+            }
+            draw(){
+                ctx.save();
+                ctx.globalAlpha = this.life / 28;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, 6, 6);
+                ctx.restore();
+            }
+        }
+
+        function initLeaves(count = 25){
+            leaves = [];
+            for(let i = 0; i < count; i++) leaves.push(new Leaf());
+        }
+
+        function resizeCanvas(){
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            bear.x = canvas.width / 2 - bear.width / 2;
+            bear.y = canvas.height - 165;
+        }
+
+        // ====================== LOAD BELLY PASS (TELEGRAM USERNAME) ======================
+        async function loadBellyPass() {
+            const tgUser = tg.initDataUnsafe?.user;
+            if (!tgUser || !tgUser.username) {
+                console.log("❌ No Telegram username detected");
+                bellyPass = null;
+                return;
+            }
+
+            const username = tgUser.username;
+
+            const { data, error } = await sb
+                .from('belly_passes')
+                .select('*')
+                .eq('telegram_username', username)
+                .eq('active', true)
+                .single();
+
+            if (error || !data) {
+                console.log(`No active Belly Pass for @${username}`);
+                bellyPass = null;
+                shieldCharges = 0;
+                magnetUntil = 0;
+                doubleCoinsMultiplier = 1;
+                updateBellyPassUI();
+                return;
+            }
+
+            bellyPass = data;
+            shieldCharges = bellyPass.power_ups?.shield || 0;
+            magnetUntil = 0;
+            doubleCoinsMultiplier = bellyPass.power_ups?.combo_master === true ? 2 : 1;
+
+            console.log(`✅ Belly Pass Loaded for @${username}`, bellyPass);
+            updateBellyPassUI();
+        }
+
+        function updateBellyPassUI() {
+            const ui = bellyPassUI;
+            if (!bellyPass) {
+                ui.style.display = 'none';
+                return;
+            }
+
+            const magnetLeft = Math.max(0, Math.ceil((magnetUntil - Date.now()) / 1000));
+            let text = `Belly Pass `;
+
+            if (shieldCharges > 0) text += `🛡️ ${shieldCharges} `;
+            if (magnetLeft > 0) text += `🧲 ${magnetLeft}s `;
+            if (doubleCoinsMultiplier === 2) text += `💰 ×2`;
+
+            ui.textContent = text.trim();
+            ui.style.display = 'block';
+        }
+
+        function activateMagnet() {
+            if (!bellyPass || !bellyPass.power_ups?.coin_magnet) return;
+            magnetUntil = Date.now() + 60000; // 1 menit
+            updateBellyPassUI();
+        }
+
+        // Unlock Audio
+        function unlockAudio() {
+            if (audioUnlocked) return;
+            audioUnlocked = true;
+            [bgMusic, eatSound, bombSound, jamMusic].forEach(audio => {
+                audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+            });
+        }
+
+        // Save Score (tetap pakai wallet untuk leaderboard)
+        async function saveScore(finalScore, coinsCaught) {
+            if (!tonConnectUI || !tonConnectUI.connected) return;
+            // ... (kode saveScore kamu tetap sama, saya tidak ubah)
+            const address = tonConnectUI.account.address;
+            const tgUser = tg.initDataUnsafe?.user;
+            const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
+
+            try {
+                const { data: current } = await sb
+                    .from('highscores')
+                    .select('best_score, total_coins, games_played')
+                    .eq('wallet_address', address)
+                    .maybeSingle();
+
+                const newBest = Math.max(current?.best_score || 0, finalScore);
+                const newTotalCoins = (current?.total_coins || 0) + coinsCaught;
+                const newGames = (current?.games_played || 0) + 1;
+
+                await sb.from('highscores').upsert({
+                    username: username,
+                    best_score: newBest,
+                    total_coins: newTotalCoins,
+                    games_played: newGames,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'wallet_address' });
+            } catch (err) { console.error("Save score error:", err); }
+        }
+
+        // Preload Assets (tetap sama)
+        function preloadAllAssets(callback) {
+            // ... (kode preload kamu tetap sama, saya tidak ubah)
+            const images = [bear.imgPending, bear.imgEating, coinImg, bombImg, backgroundImg, slowPowerImg, {src: "assets/ICON.png"}];
+            const audios = [bgMusic, eatSound, bombSound, jamMusic];
+            let loaded = 0;
+            const total = images.length + audios.length;
+            const loadingBar = document.getElementById("loading-bar");
+            const loadingText = document.getElementById("loading-text");
+
+            const checkLoaded = () => {
+                loaded++;
+                const percent = Math.floor((loaded / total) * 100);
+                loadingBar.style.width = percent + "%";
+                loadingText.textContent = `Loading assets... ${percent}%`;
+                if (loaded >= total) {
+                    setTimeout(() => {
+                        const loadingScreen = document.getElementById("loading-screen");
+                        loadingScreen.style.opacity = "0";
+                        setTimeout(() => { loadingScreen.style.display = "none"; callback(); }, 400);
+                    }, 300);
+                }
+            };
+
+            images.forEach(item => {
+                const img = item.src ? new Image() : item;
+                img.onload = checkLoaded;
+                img.onerror = checkLoaded;
+                if (item.src) img.src = item.src;
+            });
+
+            audios.forEach(audio => {
+                audio.oncanplaythrough = checkLoaded;
+                audio.onerror = checkLoaded;
+                audio.load();
+            });
+        }
+
+        // ====================== GAME FUNCTIONS ======================
+        function startCountdown() {
+            if (isPlaying) return;
+            countdownScreen.style.display = 'flex';
+            countdownScreen.style.opacity = '1';
+            let count = 3;
+            const timer = setInterval(() => {
+                countdownScreen.textContent = count;
+                countdownScreen.style.transform = 'scale(1.75)';
+                countdownScreen.style.opacity = '1';
+                setTimeout(() => { countdownScreen.style.transform = 'scale(0.2)'; countdownScreen.style.opacity = '0'; }, 500);
+                count--;
+                if (count < 0) {
+                    clearInterval(timer);
+                    setTimeout(() => {
+                        countdownScreen.style.display = 'none';
+                        const touchPopup = document.createElement('div');
+                        touchPopup.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:90;display:flex;flex-direction:column;justify-content:center;align-items:center;color:white;text-align:center;`;
+                        touchPopup.innerHTML = `<div style="font-size:2.2rem;margin-bottom:30px;">Touch the Screen</div><div style="font-size:1.4rem;opacity:0.9;">to start playing</div>`;
+                        document.body.appendChild(touchPopup);
+                        touchPopup.addEventListener('touchstart', () => { touchPopup.remove(); startActualGame(); }, { once: true });
+                    }, 400);
+                }
+            }, 700);
+        }
+
+        function resetGameState() {
+            if (spawnTimer) clearInterval(spawnTimer);
+            isPlaying = false;
+            isPaused = false;
+            score = caughtCoins = combo = 0;
+            level = 1; speed = 3.5; spawnInterval = 850;
+            slowMotionUntil = 0; magnetUntil = 0;
+            items = []; particles = [];
+            bear.currentImg = bear.imgPending;
+            scoreDisplay.textContent = "Score: 0";
+            levelDisplay.textContent = "Level 1";
+            comboDisplay.style.display = 'none';
+            pauseBtn.textContent = '⏸';
+        }
+
+        async function startActualGame() {
+            countdownScreen.style.display = 'none';
+            resetGameState();
+            resizeCanvas();
+            initLeaves(25);
+            ingameUI.style.display = 'block';
+            canvas.style.opacity = "1";
+            isPlaying = true;
+            isPaused = false;
+
+            spawnTimer = setInterval(spawnItem, spawnInterval);
+            bear.currentImg = bear.imgPending;
+
+            await loadBellyPass();
+            updateBellyPassUI();
+
+            update();
+            addGameControls();
+        }
+
+        async function startActualGameDirect() {
+            resetGameState();
+            resizeCanvas();
+            initLeaves(25);
+            ingameUI.style.display = 'block';
+            canvas.style.opacity = "1";
+            isPlaying = true;
+            isPaused = false;
+
+            spawnTimer = setInterval(spawnItem, spawnInterval);
+            bear.currentImg = bear.imgPending;
+
+            await loadBellyPass();
+            updateBellyPassUI();
+
+            update();
+            addGameControls();
+        }
+
+        // Collision, Magnet, Shield, Double Coins sudah diperbaiki
+        function update() {
+            if (!isPlaying) return;
+            if (isPaused) {
+                drawPauseFrame();
+                updateBellyPassUI();
+                requestAnimationFrame(update);
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (backgroundImg.complete) ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+            else { ctx.fillStyle = "#0f2a1f"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+
+            leaves.forEach(leaf => { leaf.update(); leaf.draw(); });
+
+            const now = Date.now();
+            const isMagnetActive = now < magnetUntil;
+
+            // Magnet Logic
+            if (isMagnetActive) {
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const item = items[i];
+                    if (item.type !== 'coin') continue;
+                    const dx = bear.x + bear.width/2 - (item.x + item.size/2);
+                    const dy = bear.y + bear.height/2 - (item.y + item.size/2);
+                    const distance = Math.sqrt(dx*dx + dy*dy);
+                    if (distance < 220 && distance > 5) {
+                        item.x += dx * 0.18;
+                        item.y += dy * 0.18;
+                    }
+                }
+            }
+
+            const isSlow = now < slowMotionUntil;
+            const currentSpeed = isSlow ? speed * 0.45 : speed;
+
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.y += currentSpeed;
+
+                if (item.type === 'bomb') ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
+                else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
+                else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+
+                const itemRight = item.x + item.size;
+                const itemBottom = item.y + item.size;
+
+                if (itemBottom > bear.y && item.y < bear.y + bear.height && itemRight > bear.x && item.x < bear.x + bear.width) {
+                    if (item.type === 'bomb') {
+                        if (shieldCharges > 0) {
+                            shieldCharges--;
+                            createParticles(item.x + 20, item.y + 10, 8);
+                        } else {
+                            score = Math.max(0, score - 45);
+                            combo = 0;
+                            bombSound.currentTime = 0;
+                            bombSound.play().catch(() => {});
+                        }
+                    } else if (item.type === 'slow') {
+                        slowMotionUntil = Date.now() + 5500;
+                        jamMusic.currentTime = 0;
+                        jamMusic.play().catch(() => {});
+                    } else {
+                        const finalScore = Math.floor(15 * doubleCoinsMultiplier);
+                        score += finalScore;
+                        caughtCoins++;
+                        combo++;
+                        lastComboTime = Date.now();
+                        bear.currentImg = bear.imgEating;
+                        setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);
+                        createParticles(item.x + 20, item.y + 10);
+                        eatSound.currentTime = 0;
+                        eatSound.play().catch(() => {});
+                    }
+                    items.splice(i, 1);
+                    continue;
+                }
+
+                if (item.y > canvas.height + 80) {
+                    if (item.type === 'coin') { gameOver(); return; }
+                    items.splice(i, 1);
+                }
+            }
+
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
+
+            scoreDisplay.textContent = `Score: ${score}`;
+            updateDifficulty();
+            updateBellyPassUI();
+
+            if (combo >= 3) {
+                comboDisplay.style.display = 'block';
+                comboDisplay.textContent = `Combo ×1.5`;
+            } else comboDisplay.style.display = 'none';
+
+            requestAnimationFrame(update);
+        }
+
+        function drawPauseFrame() {
+            // ... (kode pause frame tetap sama)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (backgroundImg.complete) ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+            else { ctx.fillStyle = "#0f2a1f"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            leaves.forEach(leaf => leaf.draw());
+            items.forEach(item => {
+                if (item.type === 'bomb') ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
+                else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
+                else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+            });
+            particles.forEach(p => p.draw());
+            ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
+        }
+
+        function gameOver() {
+            if (!isPlaying) return;
+            isPlaying = false;
+            if (spawnTimer) clearInterval(spawnTimer);
+            saveScore(score, caughtCoins);
+            canvas.style.opacity = "0.3";
+            setTimeout(() => {
+                const gameOverHTML = `
+                    <div id="gameOverOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:100;display:flex;flex-direction:column;justify-content:center;align-items:center;color:white;text-align:center;">
+                        <h1 style="font-size:3.2rem;color:#f39c12;margin:0 0 20px 0;">GAME OVER</h1>
+                        <p style="font-size:1.6rem;margin:10px 0;">Final Score</p>
+                        <p style="font-size:4rem;font-weight:bold;color:#f1c40f;margin:0 0 30px 0;">${score}</p>
+                        <p style="font-size:1.3rem;margin-bottom:40px;">Coins Caught: ${caughtCoins}</p>
+                        <div style="display:flex;gap:20px;">
+                            <button onclick="restartGame()" style="padding:14px 32px;font-size:1.2rem;background:#f39c12;color:black;border:none;border-radius:12px;cursor:pointer;">PLAY AGAIN</button>
+                            <button onclick="backToMenu()" style="padding:14px 32px;font-size:1.2rem;background:#555;color:white;border:none;border-radius:12px;cursor:pointer;">BACK TO MENU</button>
+                        </div>
+                    </div>`;
+                const overlay = document.createElement('div');
+                overlay.innerHTML = gameOverHTML;
+                document.body.appendChild(overlay.firstElementChild);
+            }, 300);
+        }
+
+        function restartGame() {
+            const overlay = document.getElementById('gameOverOverlay');
+            if (overlay) overlay.remove();
+            setTimeout(() => startActualGameDirect(), 200);
+        }
+
+        function backToMenu() {
+            window.location.href = 'index.html';
+        }
+
+        function addGameControls() {
+            // ... (kode controls kamu tetap sama)
+            let audioUnlockedLocal = false;
+            const unlockAndPlay = () => {
+                if (audioUnlockedLocal) return;
+                audioUnlockedLocal = true;
+                [bgMusic, eatSound, bombSound, jamMusic].forEach(audio => {
+                    audio.play().then(() => audio.pause()).catch(() => {});
+                });
+                setTimeout(() => { bgMusic.currentTime = 0; bgMusic.play().catch(() => {}); }, 300);
+            };
+
+            canvas.addEventListener("touchmove", (e) => {
+                if (!isPlaying || isPaused) return;
+                bear.x = e.touches[0].clientX - (bear.width / 2);
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+                e.preventDefault();
+            }, { passive: false });
+
+            canvas.addEventListener("mousemove", (e) => {
+                if (!isPlaying || isPaused) return;
+                const rect = canvas.getBoundingClientRect();
+                bear.x = e.clientX - rect.left - (bear.width / 2);
+                bear.x = Math.max(0, Math.min(canvas.width - bear.width, bear.x));
+            });
+
+            document.addEventListener("keydown", (e) => {
+                if (!isPlaying || isPaused) return;
+                if (e.key === " " || e.key === "Spacebar") {
+                    e.preventDefault();
+                    isPaused = !isPaused;
+                    pauseBtn.textContent = isPaused ? '▶' : '⏸';
+                }
+            });
+
+            canvas.addEventListener("touchstart", unlockAndPlay, { once: true });
+            canvas.addEventListener("click", unlockAndPlay, { once: true });
+        }
+
+        function spawnItem() {
+            if (!isPlaying || isPaused) return;
+            const rand = Math.random();
+            let type = 'coin';
+            if (rand < 0.25) type = 'bomb';
+            else if (rand < 0.32) type = 'slow';
+            items.push({ x: Math.random() * (canvas.width - 60), y: -70, size: 50, type: type });
+        }
+
+        function createParticles(x, y, count = 12) {
+            for (let i = 0; i < count; i++) particles.push(new Particle(x + 20, y + 20));
+        }
+
+        function updateDifficulty() {
+            const newLevel = Math.floor(score / 200) + 1;
+            levelDisplay.textContent = `Level ${newLevel}`;
+            if (newLevel !== level) {
+                level = newLevel;
+                speed = Math.min(3.5 + (level - 1) * 0.3, 9.5);
+                spawnInterval = Math.max(850 - (level - 1) * 60, 380);
+                if (spawnTimer) clearInterval(spawnTimer);
+                spawnTimer = setInterval(spawnItem, spawnInterval);
+            }
+        }
+
+        // INIT
+        document.addEventListener('DOMContentLoaded', () => {
+            resizeCanvas();
+            const loadingScreen = document.getElementById("loading-screen");
+            loadingScreen.style.display = "flex";
+            preloadAllAssets(() => {
+                setTimeout(() => startCountdown(), 600);
+            });
+        });
+    </script>
+</body>
+</html>
