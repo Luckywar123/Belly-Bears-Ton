@@ -69,6 +69,30 @@
             to   { border-color: rgba(255,100,255,1);  box-shadow: inset 0 0 90px rgba(255,0,255,0.35); }
         }
 
+        /* TAP TO START */
+        #tap-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.88);
+            display: none; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 250; cursor: pointer;
+        }
+        #tap-screen .tap-icon {
+            font-size: 80px;
+            animation: tapBounce 1s ease-in-out infinite alternate;
+        }
+        #tap-screen h2 {
+            color: #f39c12; font-size: 2.2rem; margin: 18px 0 8px 0;
+            text-shadow: 0 0 20px #f39c12;
+        }
+        #tap-screen p {
+            color: #aaa; font-size: 1.1rem; margin: 0;
+        }
+        @keyframes tapBounce {
+            from { transform: scale(1);    opacity: 0.7; }
+            to   { transform: scale(1.15); opacity: 1;   }
+        }
+
         /* COUNTDOWN */
         #countdown-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -108,6 +132,13 @@
             <div id="loading-bar" style="width:0%;height:100%;background:linear-gradient(to right,#f39c12,#f1c40f);transition:width 0.4s;"></div>
         </div>
         <p id="loading-text" style="color:#aaa;margin-top:12px;font-size:1rem;">Preparing game...</p>
+    </div>
+
+    <!-- TAP TO START -->
+    <div id="tap-screen">
+        <div class="tap-icon">🐻</div>
+        <h2>Belly Bears</h2>
+        <p>Tap anywhere to start!</p>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -417,10 +448,23 @@
         }
 
         // ── AUDIO UNLOCK (mobile) ──────────────────────────────────────────────
-        function unlockAudio(){
-            ALL_AUDIO.forEach(a => {
-                a.play().then(()=>{ a.pause(); a.currentTime = 0; }).catch(()=>{});
-            });
+        // Satu flag — setelah unlock pertama semua suara langsung bisa play kapanpun
+        let audioUnlocked = false;
+
+        async function unlockAudio(){
+            if (audioUnlocked) return;
+            audioUnlocked = true;
+
+            // Satu chain: play+pause semua audio bareng supaya browser izinkan
+            await Promise.all(ALL_AUDIO.map(a =>
+                a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {})
+            ));
+
+            // Kalau game udah jalan, langsung resume BGM tanpa perlu tap lagi
+            if (isPlaying && !isPaused) {
+                bgMusic.currentTime = 0;
+                bgMusic.play().catch(() => {});
+            }
         }
 
         // ── CONTROLS ───────────────────────────────────────────────────────────
@@ -441,7 +485,6 @@
             });
 
             magnetBtn.addEventListener('click', activateMagnet);
-            canvas.addEventListener("touchstart", unlockAudio, { once: true });
         }
 
         // ── COUNTDOWN (FIX: 3 → 2 → 1) ────────────────────────────────────────
@@ -515,7 +558,10 @@
             await loadBellyPass();
             updateBellyPassUI();
 
-            bgMusic.play().catch(()=>{});
+            // Coba play BGM; kalau masih belum unlock (first session), unlockAudio akan resume-nya
+            bgMusic.play().catch(() => {
+                // Belum unlock — akan di-resume oleh unlockAudio saat user pertama kali touch
+            });
             animFrameId = requestAnimationFrame(update);
         }
 
@@ -767,14 +813,21 @@
                 else { img.onload = done; img.onerror = done; }
             });
 
-            // Audio — track canplaythrough (or error) for progress bar
+            // Audio — satu chain loading bersama gambar, ada timeout fallback 4 detik
+            // supaya gak stuck kalau canplaythrough gak trigger (umum di Telegram WebApp)
             ALL_AUDIO.forEach(a => {
-                a.load();
-                const onReady = () => { a.removeEventListener('canplaythrough', onReady); a.removeEventListener('error', onReady); done(); };
+                let fired = false;
+                const onReady = () => {
+                    if (fired) return; fired = true;
+                    done();
+                };
                 a.addEventListener('canplaythrough', onReady, { once: true });
                 a.addEventListener('error',          onReady, { once: true });
-                // Fallback: if already cached the event may not fire
-                if (a.readyState >= 3) onReady();
+                a.load();
+                // Sudah cached / readyState cukup → langsung count
+                if (a.readyState >= 3) { onReady(); return; }
+                // Fallback: max tunggu 4 detik, lanjut loading bar
+                setTimeout(onReady, 4000);
             });
         }
 
@@ -782,6 +835,12 @@
         window.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
             setupControls();
+
+            // Unlock audio di gesture PERTAMA apapun — loading screen, countdown, dll
+            // Tanpa ini suara cuma muncul setelah tap di canvas
+            document.addEventListener('touchstart', unlockAudio, { once: true });
+            document.addEventListener('mousedown',  unlockAudio, { once: true });
+
             preloadAllAssets(() => {
                 startCountdown(() => startActualGame());
             });
