@@ -625,20 +625,35 @@
 
                     } else {
                         // COIN ─────────────────────────────────────────────────
-                        const gained = Math.floor(15 * doubleCoinsMultiplier);
+                        combo++;
+                        const comboMult = combo >= 3 ? 1.5 : 1;          // combo aktif beneran
+                        const gained    = Math.floor(15 * comboMult * doubleCoinsMultiplier);
                         score += gained;
                         caughtCoins++;
-                        combo++;
                         bear.currentImg = bear.imgEating;
                         setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);
                         createParticles(item.x, item.y);
                         eatSound.currentTime = 0; eatSound.play().catch(()=>{});
 
-                        // Floating text — shows ×2 badge if double coins active
-                        const label = doubleCoinsMultiplier === 2
-                            ? `+${gained} ×2`
-                            : `+${gained}`;
-                        const color = doubleCoinsMultiplier === 2 ? '#ff9f43' : '#f1c40f';
+                        // Floating text — tampilkan multiplier yg aktif
+                        let label, color;
+                        if (doubleCoinsMultiplier === 2 && comboMult === 1.5) {
+                            // Belly Pass + Combo aktif bareng
+                            label = `+${gained} ×1.5×2`;
+                            color = '#ff6b35';
+                        } else if (doubleCoinsMultiplier === 2) {
+                            // Hanya Belly Pass
+                            label = `+${gained} ×2`;
+                            color = '#ff9f43';
+                        } else if (comboMult === 1.5) {
+                            // Hanya Combo
+                            label = `+${gained} ×1.5`;
+                            color = '#ffeb3b';
+                        } else {
+                            // Normal
+                            label = `+${gained}`;
+                            color = '#f1c40f';
+                        }
                         floatingTexts.push(new FloatingText(item.x + 5, item.y, label, color));
                     }
                     items.splice(i, 1);
@@ -682,7 +697,11 @@
             updateBellyPassUI();
 
             comboDisplay.style.display = combo >= 3 ? 'block' : 'none';
-            if (combo >= 3) comboDisplay.textContent = `Combo ×1.5`;
+            if (combo >= 3) {
+                comboDisplay.textContent = doubleCoinsMultiplier === 2
+                    ? `🔥 Combo ×1.5 + Pass ×2`
+                    : `🔥 Combo ×1.5`;
+            }
 
             animFrameId = requestAnimationFrame(update);
         }
