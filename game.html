@@ -30,10 +30,10 @@
             padding: 6px 14px; border-radius: 9999px;
         }
 
-        /* TOMBOL MAGNET */
+        /* TOMBOL MAGNET — dinaikkan ke atas */
         #magnetBtn {
             position: absolute;
-            bottom: 30px;
+            bottom: 130px;   /* <-- naik dari 30px */
             right: 25px;
             width: 70px; height: 70px;
             background: rgba(0,0,0,0.75);
@@ -53,6 +53,22 @@
 
         canvas { cursor: none; touch-action: none; }
 
+        /* SLOW / JAM OVERLAY */
+        #slow-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 12;
+            border: 7px solid rgba(180, 0, 255, 0.75);
+            box-shadow: inset 0 0 60px rgba(180, 0, 255, 0.35);
+            background: rgba(80, 0, 160, 0.08);
+            animation: slowPulse 0.7s ease-in-out infinite alternate;
+        }
+        @keyframes slowPulse {
+            from { border-color: rgba(180,0,255,0.4); box-shadow: inset 0 0 40px rgba(180,0,255,0.2); }
+            to   { border-color: rgba(255,100,255,1);  box-shadow: inset 0 0 90px rgba(255,0,255,0.35); }
+        }
+
         /* COUNTDOWN */
         #countdown-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -63,7 +79,6 @@
         #countdown-number {
             font-size: 160px; color: #f39c12; font-weight: bold;
             text-shadow: 0 0 60px #f39c12, 0 0 20px #fff;
-            transition: transform 0.15s ease, opacity 0.15s ease;
             line-height: 1;
         }
 
@@ -85,6 +100,7 @@
 </head>
 <body>
 
+    <!-- LOADING SCREEN -->
     <div id="loading-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#1a1a1a;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:500;">
         <img src="assets/ICON.png" alt="Belly Bears" style="width:130px;height:130px;margin-bottom:25px;">
         <h2 style="color:#f39c12;margin:0 0 20px 0;font-size:1.8rem;">Loading Assets...</h2>
@@ -95,6 +111,9 @@
     </div>
 
     <canvas id="gameCanvas"></canvas>
+
+    <!-- SLOW OVERLAY -->
+    <div id="slow-overlay"></div>
 
     <div id="ingame-ui">
         <div class="stat" id="scoreDisplay">Score: 0</div>
@@ -131,24 +150,25 @@
         const sb = supabase.createClient(window.SUPABASE_CONFIG.URL, window.SUPABASE_CONFIG.ANON_KEY);
 
         // DOM
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const ingameUI = document.getElementById("ingame-ui");
-        const countdownScreen = document.getElementById("countdown-screen");
-        const countdownNumber = document.getElementById("countdown-number");
-        const scoreDisplay = document.getElementById("scoreDisplay");
-        const levelDisplay = document.getElementById("levelDisplay");
-        const comboDisplay = document.getElementById("comboDisplay");
-        const bellyPassUI = document.getElementById("bellyPassUI");
-        const pauseBtn = document.getElementById("pauseBtn");
-        const magnetBtn = document.getElementById("magnetBtn");
+        const canvas        = document.getElementById("gameCanvas");
+        const ctx           = canvas.getContext("2d");
+        const ingameUI      = document.getElementById("ingame-ui");
+        const countdownScreen  = document.getElementById("countdown-screen");
+        const countdownNumber  = document.getElementById("countdown-number");
+        const scoreDisplay  = document.getElementById("scoreDisplay");
+        const levelDisplay  = document.getElementById("levelDisplay");
+        const comboDisplay  = document.getElementById("comboDisplay");
+        const bellyPassUI   = document.getElementById("bellyPassUI");
+        const pauseBtn      = document.getElementById("pauseBtn");
+        const magnetBtn     = document.getElementById("magnetBtn");
         const gameOverOverlay = document.getElementById("game-over-overlay");
+        const slowOverlay   = document.getElementById("slow-overlay");
 
         let isPlaying = false, isPaused = false;
         let score = 0, caughtCoins = 0, level = 1, combo = 0;
         let speed = 3.5, spawnInterval = 850;
         let spawnTimer;
-        let items = [], particles = [], leaves = [];
+        let items = [], particles = [], leaves = [], floatingTexts = [];
         let slowMotionUntil = 0;
         let animFrameId = null;
 
@@ -158,32 +178,33 @@
         let magnetUntil = 0;
         let doubleCoinsMultiplier = 1;
 
-        // Audio
-        const bgMusic = new Audio('assets/music-game.mp3'); bgMusic.loop = true; bgMusic.volume = 0.75;
-        const eatSound = new Audio('assets/suara-makan.m4a'); eatSound.volume = 0.55;
-        const bombSound = new Audio('assets/bom-bgm.m4a'); bombSound.volume = 0.65;
-        const jamMusic = new Audio('assets/jam-bgm.m4a'); jamMusic.volume = 0.55;
+        // ── AUDIO ──────────────────────────────────────────────────────────────
+        const bgMusic              = new Audio('assets/music-game.mp3');   bgMusic.loop = true; bgMusic.volume = 0.75;
+        const eatSound             = new Audio('assets/suara-makan.m4a');  eatSound.volume = 0.55;
+        const bombSound            = new Audio('assets/bom-bgm.m4a');      bombSound.volume = 0.65;
+        const jamMusic             = new Audio('assets/jam-bgm.m4a');      jamMusic.volume = 0.55;
+        const magnetActivateSound  = new Audio('assets/magnet-activate.m4a'); magnetActivateSound.volume = 0.65;
+        const shieldSound          = new Audio('assets/shield-activate.m4a');  shieldSound.volume = 0.6;
 
-        // === AUDIO BARU ===
-        const magnetActivateSound = new Audio('assets/magnet-activate.m4a'); magnetActivateSound.volume = 0.65;
-        const shieldSound = new Audio('assets/shield-activate.m4a'); shieldSound.volume = 0.6;
+        const ALL_AUDIO = [bgMusic, eatSound, bombSound, jamMusic, magnetActivateSound, shieldSound];
 
-        // Bear
+        // ── BEAR ───────────────────────────────────────────────────────────────
         const bear = {
             x: 0, y: 0, width: 90, height: 90,
-            imgPending: new Image(),
-            imgEating: new Image(),
-            currentImg: null
+            imgPending : new Image(),
+            imgEating  : new Image(),
+            currentImg : null
         };
         bear.imgPending.src = "assets/Beruang-pending.png";
-        bear.imgEating.src = "assets/Beruang-makan.png";
-        bear.currentImg = bear.imgPending;
+        bear.imgEating.src  = "assets/Beruang-makan.png";
+        bear.currentImg     = bear.imgPending;
 
-        const coinImg = new Image(); coinImg.src = "assets/coin.png";
-        const bombImg = new Image(); bombImg.src = "assets/bom.png";
+        const coinImg       = new Image(); coinImg.src       = "assets/coin.png";
+        const bombImg       = new Image(); bombImg.src       = "assets/bom.png";
         const backgroundImg = new Image(); backgroundImg.src = "assets/Background-game.png";
-        const slowPowerImg = new Image(); slowPowerImg.src = "assets/slow-power.png";
+        const slowPowerImg  = new Image(); slowPowerImg.src  = "assets/slow-power.png";
 
+        // ── LEAF ───────────────────────────────────────────────────────────────
         class Leaf {
             constructor(){ this.reset(); }
             reset(){
@@ -210,7 +231,7 @@
             }
         }
 
-        // === PARTICLE BARU (lebih fleksibel) ===
+        // ── PARTICLE ───────────────────────────────────────────────────────────
         class Particle {
             constructor(x, y, options = {}){
                 this.x = x;
@@ -222,12 +243,7 @@
                 this.color = options.color ?? `hsl(${Math.random()*40+40},100%,70%)`;
                 this.size = options.size ?? 6;
             }
-            update(){
-                this.x += this.vx;
-                this.y += this.vy;
-                this.vy += 0.25;
-                this.life--;
-            }
+            update(){ this.x += this.vx; this.y += this.vy; this.vy += 0.25; this.life--; }
             draw(){
                 ctx.save();
                 ctx.globalAlpha = this.life / this.maxLife;
@@ -237,15 +253,38 @@
             }
         }
 
+        // ── FLOATING TEXT ──────────────────────────────────────────────────────
+        class FloatingText {
+            constructor(x, y, text, color = '#f1c40f'){
+                this.x = x; this.y = y;
+                this.text = text; this.color = color;
+                this.life = 45; this.maxLife = 45;
+                this.vy = -2.2;
+            }
+            update(){ this.y += this.vy; this.vy *= 0.97; this.life--; }
+            draw(){
+                ctx.save();
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.font = 'bold 22px Arial';
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+                ctx.strokeText(this.text, this.x, this.y);
+                ctx.fillStyle = this.color;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        // ── HELPERS ────────────────────────────────────────────────────────────
         function initLeaves(count = 25){
             leaves = [];
             for(let i = 0; i < count; i++) leaves.push(new Leaf());
         }
 
         function resizeCanvas(){
-            canvas.width = window.innerWidth;
+            canvas.width  = window.innerWidth;
             canvas.height = window.innerHeight;
-            bear.x = canvas.width / 2 - bear.width / 2;
+            bear.x = canvas.width  / 2 - bear.width  / 2;
             bear.y = canvas.height - 165;
         }
 
@@ -253,16 +292,73 @@
             if (!bellyPass) { bellyPassUI.style.display = 'none'; return; }
             const magnetLeft = Math.max(0, Math.ceil((magnetUntil - Date.now()) / 1000));
             let text = `Belly Pass `;
-            if (shieldCharges > 0) text += `🛡️ ${shieldCharges} `;
-            if (magnetLeft > 0) text += `🧲 ${magnetLeft}s `;
+            if (shieldCharges > 0)           text += `🛡️ ${shieldCharges} `;
+            if (magnetLeft > 0)              text += `🧲 ${magnetLeft}s `;
             if (doubleCoinsMultiplier === 2) text += `💰 ×2`;
             bellyPassUI.textContent = text.trim();
             bellyPassUI.style.display = 'block';
         }
 
+        // ── PARTICLE FACTORIES ─────────────────────────────────────────────────
+        function createParticles(x, y, count = 12){
+            for (let i = 0; i < count; i++) particles.push(new Particle(x + 20, y + 20));
+        }
+
+        function createFireExplosion(x, y, count = 22){
+            for (let i = 0; i < count; i++){
+                particles.push(new Particle(x + 20, y + 10, {
+                    vx: Math.random() * 9 - 4.5,
+                    vy: Math.random() * -9 - 5,
+                    life: 30 + Math.random() * 18,
+                    color: `hsl(${10 + Math.random()*40},100%,${50+Math.random()*45}%)`,
+                    size: 3 + Math.random() * 7
+                }));
+            }
+        }
+
+        function createShieldBlockParticles(x, y, count = 16){
+            for (let i = 0; i < count; i++){
+                particles.push(new Particle(x + 20, y + 10, {
+                    vx: Math.random() * 7 - 3.5,
+                    vy: Math.random() * -8,
+                    life: 24,
+                    color: `hsl(195,100%,${70+Math.random()*30}%)`,
+                    size: 5
+                }));
+            }
+        }
+
+        function createMagnetActivateParticles(){
+            const cx = bear.x + bear.width  / 2;
+            const cy = bear.y + bear.height / 2;
+            for (let i = 0; i < 42; i++){
+                const angle = Math.random() * Math.PI * 2;
+                const force = 9 + Math.random() * 11;
+                particles.push(new Particle(cx, cy, {
+                    vx: Math.cos(angle) * force,
+                    vy: Math.sin(angle) * force - 4,
+                    life: 26, color: "#00f0ff", size: 4.5
+                }));
+            }
+        }
+
+        // Purple-burst when jam/slow hits
+        function createSlowHitParticles(x, y){
+            for (let i = 0; i < 30; i++){
+                particles.push(new Particle(x + 25, y + 25, {
+                    vx: Math.random() * 10 - 5,
+                    vy: Math.random() * -10 - 2,
+                    life: 35 + Math.random() * 15,
+                    color: `hsl(${270 + Math.random()*40},100%,${65+Math.random()*30}%)`,
+                    size: 4 + Math.random() * 6
+                }));
+            }
+        }
+
+        // ── BELLY PASS LOADER ──────────────────────────────────────────────────
         async function loadBellyPass() {
             const tgUser = tg.initDataUnsafe?.user;
-            if (!tgUser?.username) { bellyPass = null; magnetBtn.style.display = 'none'; return; }
+            if (!tgUser?.username){ bellyPass = null; magnetBtn.style.display = 'none'; return; }
             const username = tgUser.username;
 
             const { data } = await sb
@@ -272,122 +368,63 @@
                 .eq('active', true)
                 .single();
 
-            if (!data) {
+            if (!data){
                 bellyPass = null; shieldCharges = 0; magnetUntil = 0; doubleCoinsMultiplier = 1;
                 magnetBtn.style.display = 'none';
                 updateBellyPassUI(); return;
             }
 
             bellyPass = data;
-            shieldCharges = bellyPass.power_ups?.shield || 0;
-            doubleCoinsMultiplier = bellyPass.power_ups?.combo_master === true ? 2 : 1;
+            shieldCharges          = bellyPass.power_ups?.shield        || 0;
+            doubleCoinsMultiplier  = bellyPass.power_ups?.combo_master  === true ? 2 : 1;
             magnetUntil = 0;
 
             magnetBtn.style.display = bellyPass.power_ups?.coin_magnet ? 'flex' : 'none';
             updateBellyPassUI();
         }
 
-        // === AKTIVASI MAGNET + PARTIKEL + SUARA ===
-        function activateMagnet() {
+        // ── MAGNET ACTIVATION ──────────────────────────────────────────────────
+        function activateMagnet(){
             if (!bellyPass || !bellyPass.power_ups?.coin_magnet || magnetUntil > Date.now()) return;
-            
             magnetUntil = Date.now() + 60000;
-            
-            // Partikel magnet (ledakan biru-cyan di sekitar beruang)
             createMagnetActivateParticles();
-            
-            // Suara magnet
             magnetActivateSound.currentTime = 0;
-            magnetActivateSound.play().catch(() => {});
-            
+            magnetActivateSound.play().catch(()=>{});
             updateBellyPassUI();
         }
 
-        // === PARTICLE FUNCTIONS BARU ===
-        function createParticles(x, y, count = 12) {
-            // Partikel biasa (sparkle kuning-emas) untuk coin & shield
-            for (let i = 0; i < count; i++) {
-                particles.push(new Particle(x + 20, y + 20));
-            }
-        }
-
-        function createFireExplosion(x, y, count = 22) {
-            // Partikel API-API untuk bom (merah-oranye, naik ke atas)
-            for (let i = 0; i < count; i++) {
-                particles.push(new Particle(x + 20, y + 10, {
-                    vx: Math.random() * 9 - 4.5,
-                    vy: Math.random() * -9 - 5,
-                    life: 30 + Math.random() * 18,
-                    color: `hsl(${10 + Math.random() * 40}, 100%, ${50 + Math.random() * 45}%)`,
-                    size: 3 + Math.random() * 7
-                }));
-            }
-        }
-
-        function createShieldBlockParticles(x, y, count = 16) {
-            // Partikel shield (biru putih) saat shield menangkal koin lolos
-            for (let i = 0; i < count; i++) {
-                particles.push(new Particle(x + 20, y + 10, {
-                    vx: Math.random() * 7 - 3.5,
-                    vy: Math.random() * -8,
-                    life: 24,
-                    color: `hsl(195, 100%, ${70 + Math.random() * 30}%)`,
-                    size: 5
-                }));
-            }
-        }
-
-        function createMagnetActivateParticles() {
-            // Ledakan partikel magnet saat tombol ditekan
-            const cx = bear.x + bear.width / 2;
-            const cy = bear.y + bear.height / 2;
-            for (let i = 0; i < 42; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const force = 9 + Math.random() * 11;
-                particles.push(new Particle(cx, cy, {
-                    vx: Math.cos(angle) * force,
-                    vy: Math.sin(angle) * force - 4,
-                    life: 26,
-                    color: "#00f0ff",
-                    size: 4.5
-                }));
-            }
-        }
-
-        async function saveScore(finalScore, coinsCaught) {
-            const tgUser = tg.initDataUnsafe?.user;
+        // ── SCORE SAVE ─────────────────────────────────────────────────────────
+        async function saveScore(finalScore, coinsCaught){
+            const tgUser   = tg.initDataUnsafe?.user;
             const username = tgUser?.username || tgUser?.first_name || 'Anonymous Bear';
             try {
                 const { data: existing } = await sb
                     .from('highscores')
-                    .select('best_score, total_coins, games_played')
+                    .select('best_score,total_coins,games_played')
                     .eq('telegram_username', username)
                     .maybeSingle();
 
-                const newBest = existing ? Math.max(existing.best_score || 0, finalScore) : finalScore;
-                const newCoins = (existing?.total_coins || 0) + coinsCaught;
+                const newBest  = existing ? Math.max(existing.best_score || 0, finalScore) : finalScore;
+                const newCoins = (existing?.total_coins  || 0) + coinsCaught;
                 const newGames = (existing?.games_played || 0) + 1;
 
                 await sb.from('highscores').upsert({
-                    telegram_username: username,
-                    username: username,
-                    best_score: newBest,
-                    total_coins: newCoins,
-                    games_played: newGames,
-                    last_score: finalScore
+                    telegram_username: username, username,
+                    best_score: newBest, total_coins: newCoins,
+                    games_played: newGames, last_score: finalScore
                 }, { onConflict: 'telegram_username' });
-            } catch (err) {
-                console.error("Save score error:", err);
-            }
+            } catch(err){ console.error("Save score error:", err); }
         }
 
-        function unlockAudio() {
-            [bgMusic, eatSound, bombSound, jamMusic, magnetActivateSound, shieldSound].forEach(a => {
-                a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+        // ── AUDIO UNLOCK (mobile) ──────────────────────────────────────────────
+        function unlockAudio(){
+            ALL_AUDIO.forEach(a => {
+                a.play().then(()=>{ a.pause(); a.currentTime = 0; }).catch(()=>{});
             });
         }
 
-        function setupControls() {
+        // ── CONTROLS ───────────────────────────────────────────────────────────
+        function setupControls(){
             const moveBear = (clientX) => {
                 if (!isPlaying || isPaused) return;
                 bear.x = Math.max(0, Math.min(canvas.width - bear.width, clientX - bear.width / 2));
@@ -404,44 +441,65 @@
             });
 
             magnetBtn.addEventListener('click', activateMagnet);
-
-            // Unlock audio
             canvas.addEventListener("touchstart", unlockAudio, { once: true });
         }
 
-        function startCountdown(callback) {
+        // ── COUNTDOWN (FIX: 3 → 2 → 1) ────────────────────────────────────────
+        function startCountdown(callback){
             countdownScreen.style.display = 'flex';
-            countdownNumber.style.opacity = '1';
-            countdownNumber.style.transform = 'scale(1)';
-            countdownNumber.textContent = '3';
+            let count = 3;
 
-            countdownNumber.animate([{transform:'scale(0.3)',opacity:0},{transform:'scale(1.3)',opacity:1,offset:0.6},{transform:'scale(1)',opacity:1}], {duration:500,fill:'forwards'});
-
-            setTimeout(() => {
-                countdownNumber.animate([{transform:'scale(1)',opacity:1},{transform:'scale(2)',opacity:0}], {duration:300,fill:'forwards'});
-                setTimeout(() => {
+            function showNext(){
+                if (count <= 0){
                     countdownScreen.style.display = 'none';
                     callback();
-                }, 300);
-            }, 700);
+                    return;
+                }
+                countdownNumber.textContent = String(count);
+
+                // Animate in
+                countdownNumber.animate([
+                    { transform: 'scale(0.3)', opacity: 0 },
+                    { transform: 'scale(1.3)', opacity: 1, offset: 0.55 },
+                    { transform: 'scale(1)',   opacity: 1 }
+                ], { duration: 420, fill: 'forwards' });
+
+                // After 650 ms animate out then show next
+                setTimeout(() => {
+                    countdownNumber.animate([
+                        { transform: 'scale(1)',   opacity: 1 },
+                        { transform: 'scale(1.8)', opacity: 0 }
+                    ], { duration: 260, fill: 'forwards' });
+
+                    count--;
+                    setTimeout(showNext, 300);
+                }, 650);
+            }
+
+            showNext();
         }
 
-        function resetGameState() {
-            if (spawnTimer) clearInterval(spawnTimer);
+        // ── RESET ──────────────────────────────────────────────────────────────
+        function resetGameState(){
+            if (spawnTimer)  clearInterval(spawnTimer);
             if (animFrameId) cancelAnimationFrame(animFrameId);
+
             isPlaying = false; isPaused = false;
             score = caughtCoins = combo = 0;
             level = 1; speed = 3.5; spawnInterval = 850;
             slowMotionUntil = 0; magnetUntil = 0;
-            items = []; particles = [];
+            items = []; particles = []; floatingTexts = [];
+
             bear.currentImg = bear.imgPending;
             scoreDisplay.textContent = "Score: 0";
             levelDisplay.textContent = "Level 1";
             comboDisplay.style.display = 'none';
             pauseBtn.textContent = '⏸';
+            slowOverlay.style.display = 'none';
         }
 
-        async function startActualGame() {
+        // ── START GAME ─────────────────────────────────────────────────────────
+        async function startActualGame(){
             resetGameState();
             resizeCanvas();
             initLeaves(25);
@@ -451,7 +509,6 @@
             canvas.style.opacity = "1";
 
             isPlaying = true;
-
             spawnTimer = setInterval(spawnItem, spawnInterval);
             bear.currentImg = bear.imgPending;
 
@@ -459,49 +516,49 @@
             updateBellyPassUI();
 
             bgMusic.play().catch(()=>{});
-
             animFrameId = requestAnimationFrame(update);
         }
 
-        function spawnItem() {
+        // ── SPAWN ──────────────────────────────────────────────────────────────
+        function spawnItem(){
             if (!isPlaying || isPaused) return;
             const rand = Math.random();
             let type = 'coin';
-            if (rand < 0.25) type = 'bomb';
+            if      (rand < 0.25) type = 'bomb';
             else if (rand < 0.32) type = 'slow';
             items.push({ x: Math.random() * (canvas.width - 60), y: -70, size: 50, type });
         }
 
-        function updateDifficulty() {
+        // ── DIFFICULTY ─────────────────────────────────────────────────────────
+        function updateDifficulty(){
             const newLevel = Math.floor(score / 200) + 1;
             levelDisplay.textContent = `Level ${newLevel}`;
-            if (newLevel !== level) {
+            if (newLevel !== level){
                 level = newLevel;
-                speed = Math.min(3.5 + (level - 1) * 0.3, 9.5);
+                speed         = Math.min(3.5 + (level - 1) * 0.3, 9.5);
                 spawnInterval = Math.max(850 - (level - 1) * 60, 380);
                 if (spawnTimer) clearInterval(spawnTimer);
                 spawnTimer = setInterval(spawnItem, spawnInterval);
             }
         }
 
-        function drawScene() {
+        // ── DRAW SCENE ─────────────────────────────────────────────────────────
+        function drawScene(){
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (backgroundImg.complete) ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
             else { ctx.fillStyle = "#0f2a1f"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
             leaves.forEach(leaf => leaf.draw());
         }
 
-        function update() {
+        // ── MAIN LOOP ──────────────────────────────────────────────────────────
+        function update(){
             if (!isPlaying) return;
 
-            if (isPaused) {
+            if (isPaused){
                 drawScene();
-                items.forEach(item => {
-                    if (item.type === 'bomb') ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
-                    else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
-                    else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
-                });
+                drawItems();
                 particles.forEach(p => p.draw());
+                floatingTexts.forEach(ft => ft.draw());
                 ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
                 updateBellyPassUI();
                 animFrameId = requestAnimationFrame(update);
@@ -513,66 +570,88 @@
 
             const now = Date.now();
             const isMagnetActive = now < magnetUntil;
-            const isSlow = now < slowMotionUntil;
-            const currentSpeed = isSlow ? speed * 0.45 : speed;
+            const isSlow         = now < slowMotionUntil;
+            const currentSpeed   = isSlow ? speed * 0.45 : speed;
 
-            // MAGNET EFFECT
-            if (isMagnetActive) {
+            // Slow overlay visibility
+            slowOverlay.style.display = isSlow ? 'block' : 'none';
+
+            // Magnet pull
+            if (isMagnetActive){
                 items.forEach(item => {
                     if (item.type !== 'coin') return;
-                    const dx = bear.x + bear.width/2 - (item.x + item.size/2);
-                    const dy = bear.y + bear.height/2 - (item.y + item.size/2);
+                    const dx   = bear.x + bear.width/2  - (item.x + item.size/2);
+                    const dy   = bear.y + bear.height/2 - (item.y + item.size/2);
                     const dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist < 320 && dist > 5) {
-                        item.x += dx * 0.28;
-                        item.y += dy * 0.28;
-                    }
+                    if (dist < 320 && dist > 5){ item.x += dx * 0.28; item.y += dy * 0.28; }
                 });
             }
 
-            for (let i = items.length - 1; i >= 0; i--) {
+            // Items
+            for (let i = items.length - 1; i >= 0; i--){
                 const item = items[i];
                 item.y += currentSpeed;
 
-                if (item.type === 'bomb') ctx.drawImage(bombImg, item.x + 4, item.y + 4, 44, 44);
+                if      (item.type === 'bomb') ctx.drawImage(bombImg,     item.x + 4,  item.y + 4,  44, 44);
                 else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
-                else ctx.drawImage(coinImg, item.x, item.y, item.size, item.size);
+                else                           ctx.drawImage(coinImg,      item.x,      item.y,      item.size, item.size);
 
-                const hit = item.y + item.size > bear.y && item.y < bear.y + bear.height &&
-                            item.x + item.size > bear.x && item.x < bear.x + bear.width;
+                const hit = item.y + item.size > bear.y &&
+                            item.y             < bear.y + bear.height &&
+                            item.x + item.size > bear.x &&
+                            item.x             < bear.x + bear.width;
 
-                if (hit) {
-                    if (item.type === 'bomb') {
-                        // KENA BOM → partikel API + suara + damage
+                if (hit){
+                    if (item.type === 'bomb'){
                         score = Math.max(0, score - 45);
                         combo = 0;
                         bombSound.currentTime = 0; bombSound.play().catch(()=>{});
                         createFireExplosion(item.x, item.y, 22);
-                    } else if (item.type === 'slow') {
+                        floatingTexts.push(new FloatingText(item.x, item.y, '-45', '#ff4444'));
+
+                    } else if (item.type === 'slow'){
                         slowMotionUntil = Date.now() + 5500;
                         jamMusic.currentTime = 0; jamMusic.play().catch(()=>{});
+
+                        // ── EFEK JAM BARU ────────────────────────────────────
+                        createSlowHitParticles(item.x, item.y);
+                        // Flash effect on the slow overlay
+                        slowOverlay.style.display = 'block';
+                        slowOverlay.animate([
+                            { background: 'rgba(180,0,255,0.45)' },
+                            { background: 'rgba(80,0,160,0.08)'  }
+                        ], { duration: 500, fill: 'forwards' });
+                        floatingTexts.push(new FloatingText(item.x + 10, item.y, '⏱ SLOW!', '#cc44ff'));
+
                     } else {
-                        // coin
-                        score += Math.floor(15 * doubleCoinsMultiplier);
+                        // COIN ─────────────────────────────────────────────────
+                        const gained = Math.floor(15 * doubleCoinsMultiplier);
+                        score += gained;
                         caughtCoins++;
                         combo++;
                         bear.currentImg = bear.imgEating;
                         setTimeout(() => { if (isPlaying) bear.currentImg = bear.imgPending; }, 220);
                         createParticles(item.x, item.y);
                         eatSound.currentTime = 0; eatSound.play().catch(()=>{});
+
+                        // Floating text — shows ×2 badge if double coins active
+                        const label = doubleCoinsMultiplier === 2
+                            ? `+${gained} ×2`
+                            : `+${gained}`;
+                        const color = doubleCoinsMultiplier === 2 ? '#ff9f43' : '#f1c40f';
+                        floatingTexts.push(new FloatingText(item.x + 5, item.y, label, color));
                     }
                     items.splice(i, 1);
                     continue;
                 }
 
-                // Shield hanya berkurang saat koin lolos
-                if (item.y > canvas.height + 80) {
-                    if (item.type === 'coin') {
-                        if (shieldCharges > 0) {
+                // Missed coin
+                if (item.y > canvas.height + 80){
+                    if (item.type === 'coin'){
+                        if (shieldCharges > 0){
                             shieldCharges--;
-                            createShieldBlockParticles(item.x, item.y);   // efek shield baru
-                            shieldSound.currentTime = 0;
-                            shieldSound.play().catch(() => {});
+                            createShieldBlockParticles(item.x, item.y);
+                            shieldSound.currentTime = 0; shieldSound.play().catch(()=>{});
                             updateBellyPassUI();
                         } else {
                             gameOver();
@@ -584,11 +663,16 @@
                 }
             }
 
-            // Update & draw semua partikel
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update();
-                particles[i].draw();
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--){
+                particles[i].update(); particles[i].draw();
                 if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            // Floating texts
+            for (let i = floatingTexts.length - 1; i >= 0; i--){
+                floatingTexts[i].update(); floatingTexts[i].draw();
+                if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
             }
 
             ctx.drawImage(bear.currentImg, bear.x, bear.y, bear.width, bear.height);
@@ -603,43 +687,53 @@
             animFrameId = requestAnimationFrame(update);
         }
 
-        function gameOver() {
+        // Helper: draw items only (used when paused)
+        function drawItems(){
+            items.forEach(item => {
+                if      (item.type === 'bomb') ctx.drawImage(bombImg,     item.x + 4,  item.y + 4,  44, 44);
+                else if (item.type === 'slow') ctx.drawImage(slowPowerImg, item.x - 11, item.y - 11, 75, 75);
+                else                           ctx.drawImage(coinImg,      item.x,      item.y,      item.size, item.size);
+            });
+        }
+
+        // ── GAME OVER ──────────────────────────────────────────────────────────
+        function gameOver(){
             if (!isPlaying) return;
             isPlaying = false;
-            if (spawnTimer) clearInterval(spawnTimer);
+            if (spawnTimer)  clearInterval(spawnTimer);
             if (animFrameId) cancelAnimationFrame(animFrameId);
+            slowOverlay.style.display = 'none';
 
             saveScore(score, caughtCoins);
 
             canvas.style.opacity = "0.3";
             ingameUI.style.display = 'none';
 
-            document.getElementById('go-score').textContent = score;
-            document.getElementById('go-coins').textContent = caughtCoins;
+            document.getElementById('go-score').textContent  = score;
+            document.getElementById('go-coins').textContent  = caughtCoins;
             gameOverOverlay.style.display = 'flex';
         }
 
-        function restartGame() {
+        function restartGame(){
             gameOverOverlay.style.display = 'none';
             canvas.style.opacity = '1';
             startCountdown(() => startActualGame());
         }
 
-        function backToMenu() {
-            window.location.href = 'index.html';
-        }
+        function backToMenu(){ window.location.href = 'index.html'; }
 
-        function preloadAllAssets(callback) {
+        // ── PRELOAD (images + sounds) ──────────────────────────────────────────
+        function preloadAllAssets(callback){
             const images = [bear.imgPending, bear.imgEating, coinImg, bombImg, backgroundImg, slowPowerImg];
-            let loaded = 0;
-            const total = images.length;
+            const total  = images.length + ALL_AUDIO.length;
+            let loaded   = 0;
 
-            function done() {
+            function done(){
                 loaded++;
                 const pct = Math.floor((loaded / total) * 100);
                 document.getElementById("loading-bar").style.width = pct + "%";
                 document.getElementById("loading-text").textContent = `Loading ${loaded}/${total}...`;
-                if (loaded === total) {
+                if (loaded === total){
                     document.getElementById("loading-text").textContent = "Game Ready!";
                     const ls = document.getElementById("loading-screen");
                     ls.style.transition = "opacity 0.5s";
@@ -648,15 +742,24 @@
                 }
             }
 
+            // Images
             images.forEach(img => {
-                if (img.complete) done();
+                if (img.complete && img.naturalWidth > 0) done();
                 else { img.onload = done; img.onerror = done; }
             });
 
-            // Load semua audio termasuk yang baru
-            [bgMusic, eatSound, bombSound, jamMusic, magnetActivateSound, shieldSound].forEach(a => a.load());
+            // Audio — track canplaythrough (or error) for progress bar
+            ALL_AUDIO.forEach(a => {
+                a.load();
+                const onReady = () => { a.removeEventListener('canplaythrough', onReady); a.removeEventListener('error', onReady); done(); };
+                a.addEventListener('canplaythrough', onReady, { once: true });
+                a.addEventListener('error',          onReady, { once: true });
+                // Fallback: if already cached the event may not fire
+                if (a.readyState >= 3) onReady();
+            });
         }
 
+        // ── INIT ───────────────────────────────────────────────────────────────
         window.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
             setupControls();
@@ -668,6 +771,7 @@
         pauseBtn.addEventListener('click', () => {
             isPaused = !isPaused;
             pauseBtn.textContent = isPaused ? '▶' : '⏸';
+            if (isPaused) slowOverlay.style.display = 'none';
         });
     </script>
 </body>
